@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebMCP: A Fundação para a Web Agêntica</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            background: #222222;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(255, 162, 3, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(255, 162, 3, 0.3);
+        }
+
+        .primary-color {
+            color: #FFA203;
+        }
+
+        .primary-bg {
+            background: #FFA203;
+        }
+
+        .icon-container {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 162, 3, 0.2);
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes scroll-bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(10px);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% center;
+            }
+
+            100% {
+                background-position: 200% center;
+            }
+        }
+
+        /* === BARRA DE PROGRESSO DE LEITURA === */
+        #reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #FFA203, #FF6B00, #FFA203);
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+            z-index: 9999;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px rgba(255, 162, 3, 0.5);
+        }
+
+        /* === BOTÃO PRÓXIMO CARD === */
+        #next-card {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 162, 3, 0.9);
+            color: #222222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 9998;
+            box-shadow: 0 4px 20px rgba(255, 162, 3, 0.4);
+            border: none;
+        }
+
+        #next-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #next-card:hover {
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 8px 30px rgba(255, 162, 3, 0.6);
+        }
+    </style>
+</head>
+
+<body class="font-sans">
+
+    <!-- Barra de Progresso de Leitura -->
+    <div id="reading-progress" style="width: 0%;"></div>
+
+    <!-- Botão Próximo Card (flutuante) -->
+    <button id="next-card" aria-label="Próximo card">
+        <i data-lucide="chevron-down" class="w-6 h-6" id="next-card-icon"></i>
+    </button>
+
+    <header class="min-h-screen flex items-center justify-center relative overflow-hidden">
+        <!-- Vídeo de Fundo em Loop -->
+        <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover z-0">
+            <source src="header.mp4" type="video/mp4">
+            Seu navegador não suporta vídeos.
+        </video>
+
+        <!-- Overlay para Contraste -->
+        <div class="absolute inset-0 bg-black/60 z-0"></div>
+
+        <div class="absolute inset-0 pointer-events-none z-1"
+            style="background-image: radial-gradient(circle at 20% 80%, rgba(255, 162, 3, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 162, 3, 0.1) 0%, transparent 50%);">
+        </div>
+
+        <div class="text-center relative z-10" data-aos="fade-down">
+            <span class="inline-block bg-[#FFA203] text-white text-sm font-bold px-4 py-2 rounded-full mb-6">Manifesto
+                Narrativo</span>
+            <h1 class="font-bold mb-4">
+                <span class="text-7xl md:text-9xl primary-color block mb-2">WebMCP</span>
+                <span class="text-3xl md:text-5xl border-t border-white/20 pt-4 inline-block">A Fundação para a Web
+                    Agêntica</span>
+            </h1>
+            <p class="text-xl text-white/90 max-w-3xl mx-auto mb-8">O protocolo que transforma o site de uma exibição
+                estática em uma ferramenta dinâmica para Agentes de IA.</p>
+        </div>
+
+        <button
+            class="absolute bottom-10 left-1/2 -translate-x-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-all animate-bounce z-10"
+            onclick="scrollToNextCard()">
+            <i data-lucide="chevron-down"></i>
+        </button>
+    </header>
+
+    <main class="container mx-auto px-4 py-20 flex flex-col items-center gap-[60vh]">
+        <!-- Card 0: Vídeo Demonstrativo (Prova Visual Imediata) -->
+        <div class="glass-card rounded-2xl p-4 w-full max-w-7xl overflow-hidden shadow-[0_0_50px_rgba(255,162,3,0.2)]"
+            data-aos="zoom-in" data-aos-delay="100">
+            <div class="relative pt-[56.25%] w-full rounded-xl overflow-hidden border border-white/10">
+                <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover">
+                    <source src="telas.mp4" type="video/mp4">
+                    Seu navegador não suporta vídeos.
+                </video>
+                <div
+                    class="absolute top-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    <span class="text-white text-[10px] uppercase font-bold tracking-widest">Live Demo</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 0.5: Gráfico D3 Context Rot -->
+        <div class="glass-card rounded-xl p-8 w-full max-w-4xl" data-aos="fade-up" data-aos-delay="150"
+            style="min-height: 500px;">
+            <div class="flex items-center mb-6">
+                <div class="icon-container"><i data-lucide="bar-chart-2" class="icon-line"></i></div>
+                <div class="w-10 h-1 primary-bg ml-4 mr-4"></div>
+                <h3 class="text-2xl font-bold text-white">A Queda da Performance</h3>
+            </div>
+            <p class="text-white/70 mb-6 text-sm">Comparativo de performance: <span class="text-[#FFA203] font-bold">RLM
+                    (Laranja)</span> mantém 100% de recall, enquanto métodos tradicionais colapsam.</p>
+
+            <!-- D3 CHART CONTAINER -->
+            <div id="d3-chart" class="w-full h-[400px]"></div>
+        </div>
+
+
+        <!-- Card 4: Dados Concretos (Benchmarks) -->
+        <div class="glass-card rounded-xl p-8 w-full max-w-3xl" data-aos="fade-right" data-aos-delay="400">
+            <div class="flex items-center mb-4">
+                <div class="icon-container"><i data-lucide="bar-chart-3" class="primary-color"></i></div>
+                <div class="w-10 h-1 primary-bg ml-4 mr-4"></div>
+                <h3 class="text-2xl font-bold">Performance Impactante</h3>
+            </div>
+            <div class="space-y-6 mt-8">
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="font-semibold">Economia de Tokens</span>
+                        <span class="primary-color font-bold">67.6%</span>
+                    </div>
+                    <div class="w-full h-3 bg-white/20 rounded-full">
+                        <div class="h-full rounded-full primary-bg progress-bar-fill"
+                            style="width: 0%; transition: width 2s ease-out;" data-width="67.6"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="font-semibold">Redução de Custo API</span>
+                        <span class="primary-color font-bold">63%</span>
+                    </div>
+                    <div class="w-full h-3 bg-white/20 rounded-full">
+                        <div class="h-full rounded-full primary-bg progress-bar-fill"
+                            style="width: 0%; transition: width 2s ease-out;" data-width="63"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between mb-2">
+                        <span class="font-semibold">Ganho de Latência</span>
+                        <span class="primary-color font-bold">37%</span>
+                    </div>
+                    <div class="w-full h-3 bg-white/20 rounded-full">
+                        <div class="h-full rounded-full primary-bg progress-bar-fill"
+                            style="width: 0%; transition: width 2s ease-out;" data-width="37"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 1: O Problema (Aversão à Perda) -->
+        <div class="glass-card rounded-xl p-8 w-full max-w-2xl" data-aos="fade-up" data-aos-delay="100">
+            <div class="flex items-center mb-6">
+                <div class="icon-container"><i data-lucide="eye-off" class="primary-color"></i></div>
+                <div class="w-10 h-1 primary-bg ml-4 mr-4"></div>
+                <h3 class="text-2xl font-bold text-white">O Ponto Cego da IA</h3>
+            </div>
+            <ul class="space-y-6">
+                <li class="flex items-start">
+                    <span class="text-5xl font-black primary-color mr-4 counter" data-target="100">0</span>
+                    <p class="text-white/90 text-lg">Seu site está "invisível" para a IA. Ela vê o layout, mas não
+                        entende a intenção.</p>
+                </li>
+                <li class="flex items-start">
+                    <i data-lucide="alert-triangle" class="w-6 h-6 text-red-500 mr-4 mt-1"></i>
+                    <p class="text-white/70">Scraping visual é como um cego tentando atravessar uma sala desconhecida
+                        tateando as paredes.</p>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Card 5: Comparativo Estratégico (O Embate dos Protocolos) -->
+        <div class="glass-card rounded-xl p-8 w-full max-w-4xl overflow-hidden" data-aos="fade-up" data-aos-delay="450">
+            <div class="flex items-center mb-8">
+                <div class="icon-container">
+                    <i data-lucide="swords" class="primary-color"></i>
+                </div>
+                <div class="w-10 h-1 primary-bg ml-4 mr-4"></div>
+                <h3 class="text-2xl font-bold text-white">WebMCP vs Anthropic MCP</h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/20">
+                            <th class="py-4 px-4 text-[#FFA203] font-bold uppercase text-sm tracking-wider">Vantagem
+                            </th>
+                            <th class="py-4 px-4 text-white/40 font-bold uppercase text-sm tracking-wider">Anthropic MCP
+                            </th>
+                            <th class="py-4 px-4 text-[#FFA203] font-bold uppercase text-sm tracking-wider">Google
+                                WebMCP</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/10">
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 text-white font-medium italic">Onde a Mágica Acontece?</td>
+                            <td class="py-4 px-4 text-white/60">Roda no Servidor</td>
+                            <td class="py-4 px-4 font-bold text-[#FFA203]">Direto no Navegador</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 text-white font-medium italic">Quem manda no Contexto?</td>
+                            <td class="py-4 px-4 text-white/60">Headless (Máquina-Máquina)</td>
+                            <td class="py-4 px-4 font-bold text-[#FFA203]">Humano + IA (Tempo Real)</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 text-white font-medium italic">Sessão e Cookies</td>
+                            <td class="py-4 px-4 text-white/60">Exige Re-autenticação</td>
+                            <td class="py-4 px-4 font-bold text-[#FFA203]">Nativa e Instantânea</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 text-white font-medium italic">Esforço de Implementação</td>
+                            <td class="py-4 px-4 text-white/60">Re-arquitetura do Backend</td>
+                            <td class="py-4 px-4 font-bold text-[#FFA203]">Reuso Total do Frontend</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-white/10">
+                <p class="text-white/40 text-xs italic">* O WebMCP é a "Porta de Entrada" para a colaboração em tempo
+                    real.</p>
+            </div>
+        </div>
+
+        <!-- Card 6: CTA (Transformação e Livro) - ORANGE GLASS PREMIUM -->
+        <div class="glass-card rounded-2xl p-12 w-full max-w-3xl text-center bg-gradient-to-br from-[#FFA203]/20 to-transparent border-2 border-[#FFA203] shadow-[0_0_40px_rgba(255,162,3,0.3)]"
+            data-aos="fade-up" data-aos-delay="480">
+
+            <div class="flex flex-col md:flex-row items-center gap-12">
+                <div class="w-full md:w-1/2" data-aos="fade-right" data-aos-delay="500">
+                    <img src="https://physia.com.br/mcp/capa.png" alt="Capa do Livro MCP e A2A Para Leigos"
+                        class="w-full h-auto drop-shadow-[0_0_25px_rgba(255,162,3,0.4)] hover:scale-105 transition-transform duration-500 rounded-lg">
+                </div>
+
+                <div class="w-full md:w-1/2 text-left">
+                    <div class="mb-6">
+                        <span
+                            class="inline-block bg-[#FFA203] text-black text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-3">Guia
+                            Essencial</span>
+                        <h3 class="text-3xl md:text-4xl font-black text-white mb-4 leading-tight">MCP e A2A <span
+                                class="text-[#FFA203]">Para Leigos</span>
+                        </h3>
+                        <p class="text-white/80 mb-6 text-lg">Domine a comunicação entre modelos e agentes e revolucione
+                            seu workflow.</p>
+
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-start">
+                                <i data-lucide="book-open" class="w-5 h-5 text-[#FFA203] mr-3 mt-1 flex-shrink-0"></i>
+                                <span class="text-white/90"><strong>Mastery:</strong> Protocolos MCP e A2A do zero ao
+                                    avançado.</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i data-lucide="shield-check"
+                                    class="w-5 h-5 text-[#FFA203] mr-3 mt-1 flex-shrink-0"></i>
+                                <span class="text-white/90"><strong>Segurança:</strong> Fluxos de informações protegidos
+                                    para LLMs.</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i data-lucide="users" class="w-5 h-5 text-[#FFA203] mr-3 mt-1 flex-shrink-0"></i>
+                                <span class="text-white/90"><strong>Colaboração:</strong> Agent-to-Agent de forma
+                                    coordenada.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <a href="https://chk.eduzz.com/KW8KOK2R01" target="_blank"
+                            class="w-full px-8 py-4 bg-[#FFA203] text-black font-bold rounded-lg hover:bg-[#ffb340] transition-colors flex items-center justify-center gap-2 transform hover:scale-105 shadow-[0_0_20px_rgba(255,162,3,0.4)]">
+                            <i data-lucide="shopping-cart"></i>
+                            Quero meu Exemplar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: A Metáfora (Facilidade Cognitiva) -->
+        <div class="glass-card rounded-xl p-10 w-full max-w-2xl text-center relative" data-aos="fade-right"
+            data-aos-delay="200">
+            <div class="absolute top-4 left-6 text-7xl font-serif primary-color opacity-20">“</div>
+
+            <blockquote class="relative z-10">
+                <p class="text-2xl italic text-white/90 leading-relaxed mb-6">
+                    O WebMCP é o USB-C da Web Agêntica. Um conector universal onde a IA 'pluga' no seu site e sabe
+                    exatamente o que fazer sem adivinhação visual.
+                </p>
+                <cite class="not-italic">
+                    <div class="w-12 h-1 primary-bg mx-auto mb-4"></div>
+                    <span class="block text-white font-bold text-lg">WebMCP Protocol</span>
+                    <span class="block text-white/60 text-sm">Analogia do GPS vs Mapa de Papel</span>
+                </cite>
+            </blockquote>
+        </div>
+
+        <!-- Card 2.5: O Código Legado (Invisível para IA) -->
+        <div class="glass-card rounded-xl overflow-hidden w-full max-w-4xl" data-aos="fade-up" data-aos-delay="250">
+            <div class="bg-white/10 px-4 py-2 flex items-center justify-between border-b border-white/10">
+                <div class="flex gap-1.5">
+                    <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="code-2" class="w-4 h-4 text-white/40"></i>
+                    <span class="text-xs font-mono text-white/40 uppercase tracking-widest">HTML Tradicional</span>
+                </div>
+            </div>
+
+            <div class="p-6 overflow-x-auto bg-[#1a1a1a]/50">
+                <pre class="font-mono text-sm leading-relaxed text-white/90"><code>&lt;form id="login-form"&gt;
+    &lt;input type="email" name="email" required&gt;
+    &lt;input type="password" name="password" required&gt;
+    &lt;button type="submit"&gt;Entrar&lt;/button&gt;
+&lt;/form&gt;</code></pre>
+            </div>
+
+            <div class="px-6 py-3 bg-white/5 border-t border-white/5 flex items-center justify-between">
+                <span class="text-[10px] text-white/30 font-mono italic">// A IA vê pixels, mas não entende a
+                    função</span>
+                <div class="flex items-center gap-1">
+                    <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                    <span class="text-[10px] text-white/50">Legacy Mode</span>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Card 3: A Solução (Atributos HTML) -->
+        <div class="glass-card rounded-xl overflow-hidden w-full max-w-4xl" data-aos="fade-up" data-aos-delay="300">
+            <div class="bg-white/10 px-4 py-2 flex items-center justify-between border-b border-white/10">
+                <div class="flex gap-1.5">
+                    <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="code-2" class="w-4 h-4 text-white/40"></i>
+                    <span class="text-xs font-mono text-white/40 uppercase tracking-widest">HTML</span>
+                </div>
+                <button class="text-white/40 hover:text-[#FFA203] transition-colors"
+                    onclick="navigator.clipboard.writeText(`<form toolname='checkout' tooldescription='Finaliza a compra do carrinho'>`)">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-x-auto bg-[#1a1a1a]/50">
+                <pre class="font-mono text-sm leading-relaxed text-white/90"><code>&lt;<span class="text-[#ff79c6]">form</span> id="login-form" 
+    <span class="text-[#50fa7b] font-bold">toolname</span>="login_redirect" 
+    <span class="text-[#50fa7b] font-bold">tooldescription</span>="Login e redirecionamento"
+    <span class="text-[#50fa7b] font-bold">toolautosubmit</span>="true"&gt;
+    &lt;input type="email" name="email" required 
+           <span class="text-[#50fa7b] font-bold">toolparamtitle</span>="E-mail"&gt;
+
+    &lt;input type="password" name="password" required 
+           <span class="text-[#50fa7b] font-bold">toolparamtitle</span>="Senha"&gt;
+
+    &lt;button type="submit"&gt;Entrar&lt;/button&gt;
+&lt;/<span class="text-[#ff79c6]">form</span>&gt;</code></pre>
+            </div>
+
+            <div class="px-6 py-3 bg-white/5 border-t border-white/5 flex items-center justify-between">
+                <span class="text-[10px] text-white/30 font-mono italic">// Implementação em 90% do HTML
+                    existente</span>
+                <div class="flex items-center gap-1">
+                    <div class="w-1.5 h-1.5 rounded-full primary-bg animate-pulse"></div>
+                    <span class="text-[10px] text-white/50">Agent Optimized</span>
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+
+
+        <!-- Card 8: Autoridade (Viés de Autoridade) -->
+        <div class="w-full max-w-5xl" data-aos="fade-up" data-aos-delay="500">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                <div
+                    class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-4 border-t-white/20">
+                    <i data-lucide="chrome" class="w-10 h-10 mb-4 text-white/70"></i>
+                    <h4 class="text-xl font-bold mb-2">Google</h4>
+                    <p class="text-white/60 text-sm mb-6">Motor nativo integrado ao navegador.</p>
+                    <div class="text-4xl font-black mb-6">V146</div>
+                </div>
+
+                <div
+                    class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-4 border-t-[#FFA203] relative transform scale-105 z-10 shadow-2xl">
+                    <div
+                        class="absolute -top-3 bg-[#FFA203] text-[#222222] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter">
+                        Padrão Aberto</div>
+                    <i data-lucide="globe" class="w-10 h-10 mb-4 primary-color"></i>
+                    <h4 class="text-xl font-bold mb-2">W3C</h4>
+                    <p class="text-white/60 text-sm mb-6">Sob a égide do Community Group de ML.</p>
+                    <div class="text-4xl font-black primary-color mb-6">GLOBAL</div>
+                </div>
+
+                <div
+                    class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-4 border-t-white/20">
+                    <i data-lucide="cloud" class="w-10 h-10 mb-4 text-white/70"></i>
+                    <h4 class="text-xl font-bold mb-2">Microsoft</h4>
+                    <p class="text-white/60 text-sm mb-6">Desenvolvimento colaborativo de infraestrutura.</p>
+                    <div class="text-4xl font-black mb-6">AZURE</div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Card 7: Limitações e Considerações Técnicas -->
+        <div class="glass-card rounded-xl p-8 w-full max-w-4xl" data-aos="fade-up" data-aos-delay="550">
+            <div class="flex items-center mb-8">
+                <div class="icon-container">
+                    <i data-lucide="alert-triangle" class="primary-color"></i>
+                </div>
+                <div class="w-10 h-1 primary-bg ml-4 mr-4"></div>
+                <h3 class="text-2xl font-bold text-white">Limitações e Considerações Técnicas</h3>
+            </div>
+            <div class="space-y-8">
+                <div class="flex items-start gap-6">
+                    <div class="text-4xl font-black primary-color opacity-30">01</div>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Contexto de Navegação Necessário</h4>
+                        <p class="text-white/70 text-sm leading-relaxed">As chamadas são tratadas em JS, exigindo uma
+                            aba ou visualização web aberta. Atualmente, não há suporte para ferramentas "headless" sem
+                            interface visível.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-6">
+                    <div class="text-4xl font-black primary-color opacity-30">02</div>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Sincronização da Interface (UI)</h4>
+                        <p class="text-white/70 text-sm leading-relaxed">Desenvolvedores devem garantir que a interface
+                            reflita o estado atual, venha a atualização de interação humana ou de uma chamada de
+                            ferramenta automática.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-6">
+                    <div class="text-4xl font-black primary-color opacity-30">03</div>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Sobrecarga de Complexidade</h4>
+                        <p class="text-white/70 text-sm leading-relaxed">Interfaces muito complexas podem exigir
+                            refatoração ou lógica JS adicional para gerenciar o estado do app e a interface com as
+                            saídas apropriadas.</p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-6">
+                    <div class="text-4xl font-black primary-color opacity-30">04</div>
+                    <div>
+                        <h4 class="text-white font-bold mb-1">Descoberta de Ferramentas</h4>
+                        <p class="text-white/70 text-sm leading-relaxed">Não há mecanismo nativo para descobrir
+                            ferramentas sem visitar o site. Diretórios e mecanismos de busca serão cruciais para essa
+                            funcionalidade.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+    </main>
+    <footer class="py-12 text-center text-white/60">
+        <p>&copy; 2026 - Canal Sandeco. Fonte: WebMCP Foundation Copy & Marketing Psychology</p>
+    </footer>
+
+    <script>
+        AOS.init({ duration: 800, once: true, offset: 100 });
+        lucide.createIcons();
+
+        // === Navegação Card-a-Card ===
+        const cardSections = [];
+
+        function buildCardSections() {
+            cardSections.length = 0;
+            const wrappers = document.querySelectorAll('.fullscreen-wrapper');
+            if (wrappers.length > 0) {
+                wrappers.forEach(el => cardSections.push(el));
+            } else {
+                document.querySelectorAll('main > .glass-card, main > div:not(.glass-card)').forEach(el => cardSections.push(el));
+            }
+        }
+
+        function getCurrentSectionIndex() {
+            const scrollTop = window.scrollY + window.innerHeight * 0.3;
+            let idx = -1;
+            for (let i = 0; i < cardSections.length; i++) {
+                if (cardSections[i].offsetTop <= scrollTop) {
+                    idx = i;
+                }
+            }
+            return idx;
+        }
+
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = (scrollTop / docHeight) * 100;
+            document.getElementById('reading-progress').style.width = progress + '%';
+
+            const btn = document.getElementById('next-card');
+            if (scrollTop > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+
+            const icon = document.getElementById('next-card-icon');
+            const atBottom = (scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 100);
+            if (atBottom) {
+                icon.setAttribute('data-lucide', 'chevron-up');
+            } else {
+                icon.setAttribute('data-lucide', 'chevron-down');
+            }
+            lucide.createIcons();
+        });
+
+        document.getElementById('next-card').addEventListener('click', () => {
+            const atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 100);
+            if (atBottom) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            const idx = getCurrentSectionIndex();
+            const nextIdx = idx + 1;
+            if (nextIdx < cardSections.length) {
+                cardSections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+
+        function animateCounters() {
+            const counters = document.querySelectorAll('.counter');
+            counters.forEach(counter => {
+                const target = parseFloat(counter.getAttribute('data-target'));
+                const duration = 2000;
+                const increment = target / (duration / 16);
+                let current = 0;
+                const updateCounter = () => {
+                    current += increment;
+                    if (current < target) {
+                        counter.textContent = current.toFixed(current % 1 === 0 ? 0 : 1) + '%';
+                        requestAnimationFrame(updateCounter);
+                    } else { counter.textContent = target + '%'; }
+                };
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => { if (entry.isIntersecting) { updateCounter(); observer.unobserve(entry.target); } });
+                });
+                observer.observe(counter);
+            });
+        }
+
+        function animateProgressBars() {
+            document.querySelectorAll('.progress-bar-fill').forEach(bar => {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            setTimeout(() => { bar.style.width = bar.getAttribute('data-width') + '%'; }, 200);
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                });
+                observer.observe(bar);
+            });
+        }
+
+        // === D3.js Chart Implementation ===
+        function renderContextRotChart() {
+            const container = d3.select("#d3-chart");
+            const width = container.node().getBoundingClientRect().width;
+            const height = 400;
+            const margin = { top: 40, right: 100, bottom: 50, left: 60 };
+
+            // Clear previous render
+            container.selectAll("*").remove();
+
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            // Data based on the provided image
+            const xLabels = ["8k", "16k", "33k", "66k", "131k", "262k", "524k", "1M"];
+
+            // S-NIAH (RLM/Ideal) - Stays at 100
+            const dataSNIAH = xLabels.map(label => ({ x: label, y: 100 }));
+
+            // OOLONG (RAG/Current) - Drops
+            // values approx: 90, 78, 48, 45, 45, 30, null, null
+            const dataOOLONG = [
+                { x: "8k", y: 92 }, { x: "16k", y: 78 }, { x: "33k", y: 49 },
+                { x: "66k", y: 45 }, { x: "131k", y: 44 }, { x: "262k", y: 30 }
+            ];
+
+            // OOLONG-Pairs (Compactação/Failure) - Drops fast
+            const dataOOLONGPairs = [
+                { x: "8k", y: 80 }, { x: "16k", y: 58 }, { x: "33k", y: 5 },
+                { x: "66k", y: 1 }, { x: "131k", y: 1 }, { x: "262k", y: 1 }
+            ];
+
+            // Scales
+            const xScale = d3.scalePoint()
+                .domain(xLabels)
+                .range([0, innerWidth]);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, 105])
+                .range([innerHeight, 0]);
+
+            // Gridlines
+            const makeYGridlines = () => d3.axisLeft(yScale).ticks(5);
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("opacity", 0.1)
+                .call(makeYGridlines()
+                    .tickSize(-innerWidth)
+                    .tickFormat("")
+                );
+
+            const makeXGridlines = () => d3.axisBottom(xScale);
+            svg.append("g")
+                .attr("class", "grid")
+                .attr("opacity", 0.1)
+                .attr("transform", `translate(0, ${innerHeight})`)
+                .call(makeXGridlines()
+                    .tickSize(-innerHeight)
+                    .tickFormat("")
+                );
+
+            // Shaded Region (Failure Zone)
+            const failureStart = xScale("262k");
+            svg.append("rect")
+                .attr("x", failureStart)
+                .attr("y", 0)
+                .attr("width", innerWidth - failureStart)
+                .attr("height", innerHeight)
+                .attr("fill", "rgba(220, 38, 38, 0.15)") // Red tint
+                .attr("opacity", 0)
+                .transition().delay(2000).duration(1000).attr("opacity", 1);
+
+            svg.append("text")
+                .attr("x", failureStart + 20)
+                .attr("y", innerHeight / 2)
+                .attr("fill", "#ef4444")
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .attr("transform", `rotate(-90, ${failureStart + 20}, ${innerHeight / 2})`)
+                .text("Zona de Colapso")
+                .attr("opacity", 0)
+                .transition().delay(2200).duration(1000).attr("opacity", 1);
+
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale);
+            svg.append("g")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(xAxis)
+                .selectAll("text")
+                .attr("fill", "rgba(255,255,255,0.7)")
+                .attr("font-size", "12px")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            const yAxis = d3.axisLeft(yScale).ticks(5);
+            svg.append("g")
+                .call(yAxis)
+                .selectAll("text")
+                .attr("fill", "rgba(255,255,255,0.7)")
+                .attr("font-size", "12px");
+
+            svg.selectAll(".domain").attr("stroke", "rgba(255,255,255,0.3)");
+            svg.selectAll(".tick line").attr("stroke", "rgba(255,255,255,0.3)");
+
+            // Axis Labels
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0 - margin.left + 15)
+                .attr("x", 0 - (innerHeight / 2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .attr("fill", "white")
+                .text("Score (%)");
+
+            // Line Generators
+            const line = d3.line()
+                .x(d => xScale(d.x))
+                .y(d => yScale(d.y));
+
+            // Draw Lines & Markers with Animation
+            const animatePath = (path, delay = 0) => {
+                const totalLength = path.node().getTotalLength();
+                path
+                    .attr("stroke-dasharray", totalLength + " " + totalLength)
+                    .attr("stroke-dashoffset", totalLength)
+                    .transition()
+                    .duration(2000)
+                    .delay(delay)
+                    .ease(d3.easeCubicOut)
+                    .attr("stroke-dashoffset", 0);
+            };
+
+            // 1. OOLONG-Pairs (Bottom)
+            const pathPairs = svg.append("path")
+                .datum(dataOOLONGPairs)
+                .attr("fill", "none")
+                .attr("stroke", "#3b82f6") // Blue 500
+                .attr("stroke-width", 3)
+                .attr("d", line);
+            animatePath(pathPairs, 500);
+
+            svg.selectAll(".dot-pairs")
+                .data(dataOOLONGPairs)
+                .enter().append("rect") // Square markers
+                .attr("x", d => xScale(d.x) - 4)
+                .attr("y", d => yScale(d.y) - 4)
+                .attr("width", 8)
+                .attr("height", 8)
+                .attr("fill", "#1d4ed8") // Darker blue
+                .attr("stroke", "black")
+                .attr("opacity", 0)
+                .transition().delay((d, i) => 500 + i * 150).duration(500).attr("opacity", 1);
+
+
+            // 2. OOLONG (Middle)
+            const pathOolong = svg.append("path")
+                .datum(dataOOLONG)
+                .attr("fill", "none")
+                .attr("stroke", "#60a5fa") // Blue 400
+                .attr("stroke-width", 3)
+                .attr("d", line);
+            animatePath(pathOolong, 1000);
+
+            svg.selectAll(".dot-oolong")
+                .data(dataOOLONG)
+                .enter().append("path") // Triangle markers
+                .attr("d", d3.symbol().type(d3.symbolTriangle).size(60))
+                .attr("transform", d => `translate(${xScale(d.x)},${yScale(d.y)})`)
+                .attr("fill", "#3b82f6")
+                .attr("stroke", "black")
+                .attr("opacity", 0)
+                .transition().delay((d, i) => 1000 + i * 150).duration(500).attr("opacity", 1);
+
+
+            // 3. S-NIAH (Top - HERO/RLM)
+            const pathSniah = svg.append("path")
+                .datum(dataSNIAH)
+                .attr("fill", "none")
+                .attr("stroke", "#FFA203") // Primary Orange
+                .attr("stroke-width", 4)
+                .attr("d", line);
+            animatePath(pathSniah, 1500);
+
+            svg.selectAll(".dot-sniah")
+                .data(dataSNIAH)
+                .enter().append("circle")
+                .attr("cx", d => xScale(d.x))
+                .attr("cy", d => yScale(d.y))
+                .attr("r", 5)
+                .attr("fill", "#FFA203")
+                .attr("stroke", "black")
+                .attr("r", 0)
+                .transition().delay((d, i) => 1500 + i * 100).duration(500).attr("r", 5);
+
+            svg.append("text")
+                .attr("x", xScale("262k"))
+                .attr("y", yScale(100) + 20)
+                .attr("fill", "#FFA203")
+                .attr("font-weight", "bold")
+                .text("RLM (100%)");
+
+            // Chart Title
+            svg.append("text")
+                .attr("x", innerWidth / 2)
+                .attr("y", 0 - (margin.top / 2))
+                .attr("text-anchor", "middle")
+                .attr("fill", "white")
+                .style("font-size", "16px")
+                .style("font-weight", "bold")
+                .text("Performance em \"Needle In A Haystack\" (Recuperação de Dados)");
+
+        }
+
+        function setupFullScreenWrappers() {
+            const main = document.querySelector('main');
+            if (!main) return;
+
+            main.classList.remove('gap-[60vh]', 'py-20');
+            main.style.paddingTop = '';
+
+            const children = Array.from(main.children);
+            children.forEach(child => {
+                if (child.tagName === 'DIV' && !child.classList.contains('fullscreen-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'min-h-screen w-full flex items-center justify-center fullscreen-wrapper snap-start p-4';
+                    child.parentNode.insertBefore(wrapper, child);
+                    wrapper.appendChild(child);
+                }
+            });
+
+            buildCardSections();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFullScreenWrappers();
+            setTimeout(animateCounters, 500);
+            setTimeout(animateProgressBars, 600);
+
+            // Intersection Observer for Scroll-Triggered Animation (Chart)
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.3 // Trigger when 30% visible
+            };
+
+            const chartObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        if (entry.target.id === 'd3-chart') {
+                            renderContextRotChart();
+                            observer.unobserve(entry.target); // Animate once
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            const chart1 = document.getElementById('d3-chart');
+            if (chart1) chartObserver.observe(chart1);
+
+            // Resize listener for responsiveness (Chart)
+            window.addEventListener('resize', () => {
+                if (document.getElementById('d3-chart')) renderContextRotChart();
+            });
+
+            const headerBtn = document.getElementById('header-next-btn');
+            if (headerBtn) {
+                headerBtn.addEventListener('click', () => {
+                    if (cardSections.length > 0) {
+                        cardSections[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                const idx = getCurrentSectionIndex();
+
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+                    e.preventDefault();
+                    const nextIdx = idx + 1;
+                    if (nextIdx < cardSections.length) {
+                        cardSections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    const prevIdx = idx - 1;
+                    if (prevIdx >= 0) {
+                        cardSections[prevIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else if (idx === 0 || idx === -1) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }
+            });
+
+            window.addEventListener('resize', setupFullScreenWrappers);
+        });
+    </script>
+</body>
+
+</html>

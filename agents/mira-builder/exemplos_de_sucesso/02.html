@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agents Skills</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            background: #222222;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(255, 162, 3, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(255, 162, 3, 0.3);
+        }
+
+        .primary-color {
+            color: #FFA203;
+        }
+
+        .primary-bg {
+            background: #FFA203;
+        }
+
+        .icon-container {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 162, 3, 0.2);
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes animate-scroll {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(calc(-100% / 2));
+            }
+        }
+
+        .animate-scroll {
+            animation: animate-scroll 30s linear infinite;
+            width: max-content;
+        }
+
+        .logo-track:hover {
+            animation-play-state: paused;
+        }
+
+        @keyframes scroll-bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(10px);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -200% center;
+            }
+
+            100% {
+                background-position: 200% center;
+            }
+        }
+
+        /* === BARRA DE PROGRESSO DE LEITURA === */
+        #reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #FFA203, #FF6B00, #FFA203);
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+            z-index: 9999;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px rgba(255, 162, 3, 0.5);
+        }
+
+        /* === BOTÃO PRÓXIMO CARD === */
+        #next-card {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(255, 162, 3, 0.9);
+            color: #222222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            z-index: 9998;
+            box-shadow: 0 4px 20px rgba(255, 162, 3, 0.4);
+            border: none;
+        }
+
+        #next-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        #next-card:hover {
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 8px 30px rgba(255, 162, 3, 0.6);
+        }
+    </style>
+</head>
+
+<body class="font-sans">
+
+    <!-- Barra de Progresso de Leitura -->
+    <div id="reading-progress" style="width: 0%;"></div>
+
+    <!-- Botão Próximo Card (flutuante) -->
+    <button id="next-card" aria-label="Próximo card">
+        <i data-lucide="chevron-down" class="w-6 h-6" id="next-card-icon"></i>
+    </button>
+
+    <header class="min-h-screen flex items-center justify-center relative overflow-hidden bg-black">
+        <video autoplay loop muted playsinline class="absolute inset-0 w-full h-full object-cover">
+            <source src="header.mp4" type="video/mp4">
+        </video>
+        <div class="absolute inset-0 pointer-events-none"
+            style="background: linear-gradient(to bottom, rgba(26, 26, 26, 0.7), rgba(26, 26, 26, 0.4), rgba(26, 26, 26, 0.8));">
+        </div>
+        <div class="absolute inset-0 pointer-events-none"
+            style="background-image: radial-gradient(circle at 20% 80%, rgba(255, 162, 3, 0.25) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 162, 3, 0.2) 0%, transparent 50%);">
+        </div>
+        <div class="text-center relative z-10" data-aos="fade-down">
+            <span
+                class="inline-block bg-[#FFA203] text-white text-sm font-bold px-4 py-2 rounded-full mb-6">Apresentação</span>
+            <h1 class="text-5xl md:text-6xl font-bold mb-4">Agents Skills</h1>
+            <p class="text-xl text-white/90 max-w-3xl mx-auto mb-8">Dominando as Habilidades dos Agentes de IA
+                Inteligentes</p>
+        </div>
+
+
+        <!-- Botão "Começar" — navega ao primeiro card -->
+        <button
+            class="absolute bottom-8 right-8 flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none group"
+            id="header-next-btn" aria-label="Ir para o primeiro card"
+            style="animation: scroll-bounce 2s ease-in-out infinite;">
+            <span
+                class="text-[10px] uppercase tracking-[4px] text-white/30 font-medium group-hover:text-[#FFA203] transition-colors">Iniciar</span>
+            <div
+                class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-[#FFA203]/20 transition-all">
+                <i data-lucide="chevron-down"
+                    class="w-5 h-5 text-white/40 group-hover:text-[#FFA203] transition-colors"></i>
+            </div>
+        </button>
+    </header>
+    <main class="container mx-auto px-4 py-20 flex flex-col items-center gap-[60vh]">
+        <!-- Card: O que é Agents Skill? -->
+        <div class="w-full max-w-5xl" data-aos="fade-up" data-aos-delay="100">
+            <div class="text-center mb-12" data-aos="zoom-in">
+                <h2 class="text-4xl font-bold mb-4 primary-color italic">O que são Agents Skills?</h2>
+                <p class="text-white/70 max-w-2xl mx-auto italic">O conjunto de competências que transforma uma IA
+                    passiva em um agente proativo e autônomo.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Autonomia -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-2 border-t-white/10"
+                    style="box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);" data-aos="flip-left" data-aos-delay="200">
+                    <div class="icon-container mb-6 scale-125" style="background: rgba(255, 0, 0, 0.2);">
+                        <i data-lucide="zap" class="w-6 h-6" style="color: #FF0000;"></i>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">Autonomia</h4>
+                    <p class="text-white/60 text-sm italic">Capacidade de tomar decisões e executar tarefas sem
+                        supervisão constante.</p>
+                </div>
+
+                <!-- Inteligência -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-2 border-t-[#00FF00] relative transform scale-105 z-10"
+                    style="box-shadow: 0 20px 40px rgba(0, 255, 0, 0.3);" data-aos="flip-left" data-aos-delay="300">
+                    <div
+                        class="absolute -top-3 bg-[#00FF00] text-[#222222] text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+                        Core</div>
+                    <div class="icon-container mb-6 scale-125 bg-[#00FF00]/20">
+                        <i data-lucide="brain" class="w-6 h-6" style="color: #00FF00;"></i>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">Raciocínio</h4>
+                    <p class="text-white/60 text-sm italic">Decomposição de problemas complexos em passos lógicos e
+                        acionáveis.</p>
+                </div>
+
+                <!-- Ferramentas -->
+                <div class="glass-card rounded-2xl p-8 flex flex-col items-center text-center border-t-2 border-t-white/10"
+                    style="box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);" data-aos="flip-left" data-aos-delay="400">
+                    <div class="icon-container mb-6 scale-125" style="background: rgba(0, 255, 255, 0.2);">
+                        <i data-lucide="cpu" class="w-6 h-6" style="color: #00FFFF;"></i>
+                    </div>
+                    <h4 class="text-xl font-bold mb-3">Uso de Tools</h4>
+                    <p class="text-white/60 text-sm italic">Habilidade de interagir com APIs, bancos de dados e sistemas
+                        externos.</p>
+                </div>
+            </div>
+        </div>
+        <div class="w-full max-w-5xl" data-aos="fade-up">
+            <div class="glass-card rounded-2xl p-10 md:p-14 relative overflow-hidden">
+                <!-- Vídeo de Fundo -->
+                <video autoplay loop muted playsinline
+                    class="absolute inset-0 w-full h-full object-cover z-0 opacity-60">
+                    <source src="adocao.mp4" type="video/mp4">
+                </video>
+                <!-- Overlay para Contraste -->
+                <div class="absolute inset-0 bg-gradient-to-b from-[#222222]/80 via-[#222222]/40 to-[#222222]/80 z-1">
+                </div>
+
+                <div class="relative z-10">
+                    <div class="text-center mb-12">
+                        <div class="flex items-center justify-center gap-4 mb-4">
+                            <i data-lucide="shield-check" class="text-[#FFA203] w-8 h-8 md:w-10 md:h-10"></i>
+                            <h3 class="text-3xl md:text-4xl font-bold text-[#FFA203]">Adoção</h3>
+                        </div>
+                        <p class="text-lg text-white/60 max-w-3xl mx-auto">As habilidades dos agentes são suportadas por
+                            ferramentas de desenvolvimento de IA de ponta.</p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-center gap-10 md:gap-16" data-aos="zoom-in">
+                        <!-- Antigravity -->
+                        <div class="transition-all hover:scale-110">
+                            <img src="antigravity_no_bg.png" alt="Antigravity"
+                                class="h-12 md:h-14 w-auto object-contain">
+                        </div>
+                        <!-- Claude Code -->
+                        <a href="https://claude.ai/code" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/claude-code/Claude-Code-logo-Ivory.svg"
+                                alt="Claude Code" class="h-10 md:h-12 w-auto object-contain">
+                        </a>
+                        <!-- Gemini CLI -->
+                        <a href="https://geminicli.com" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/gemini-cli/gemini-cli-logo_dark.svg"
+                                alt="Gemini CLI" class="h-10 md:h-12 w-auto object-contain">
+                        </a>
+                        <!-- Opencode -->
+                        <a href="https://opencode.ai" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/opencode/opencode-wordmark-dark.svg"
+                                alt="Opencode" class="h-10 md:h-12 w-auto object-contain">
+                        </a>
+                        <!-- GitHub -->
+                        <a href="https://github.com" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/github/GitHub_Lockup_Light.svg" alt="GitHub"
+                                class="h-10 md:h-12 w-auto object-contain">
+                        </a>
+                        <!-- Databricks -->
+                        <a href="https://databricks.com" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/databricks/databricks-logo-dark.svg"
+                                alt="Databricks" class="h-10 md:h-12 w-auto object-contain">
+                        </a>
+                        <!-- OpenAI Codex -->
+                        <a href="https://openai.com/codex" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/oai-codex/OAI_Codex-Lockup_400px_Darkmode.svg"
+                                alt="OpenAI Codex" class="h-14 md:h-16 w-auto object-contain">
+                        </a>
+                        <!-- Goose -->
+                        <a href="https://block.github.io/goose/" target="_blank" class="transition-all hover:scale-110">
+                            <img src="https://agentskills.io/images/logos/goose/goose-logo-white.png" alt="Goose"
+                                class="h-14 md:h-16 w-auto object-contain">
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Explosão do Ecossistema (Análise de Dados D3 — Especialista D3) -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <i data-lucide="trending-up" class="text-blue-400 w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-3xl font-bold text-white">Explosão do <span
+                            class="text-[#FFA203]">Ecossistema</span></h3>
+                    <p class="text-white/50 text-sm italic">Métricas de Adoção e Crescimento (Q1 2026)</p>
+                </div>
+            </div>
+
+            <p class="text-white/70 mb-8 leading-relaxed max-w-3xl">
+                O crescimento das agent skills e do repositório OpenClaw mostra uma adoção explosiva.
+                Passe o mouse sobre o gráfico para explorar os dados detalhados de cada data.
+            </p>
+
+            <div id="growth-chart-v2"
+                class="w-full relative overflow-hidden rounded-xl bg-black/20 border border-white/5 backdrop-blur-sm"
+                style="height: 480px;">
+
+                <script>
+                    (function () {
+                        // ===== DADOS =====
+                        // Dados extraídos do gráfico original de referência
+                        const rawData = [
+                            { date: "2026-01-16", skills: 500, stars: 0 },
+                            { date: "2026-01-17", skills: 1000, stars: 0 },
+                            { date: "2026-01-18", skills: 1800, stars: 100 },
+                            { date: "2026-01-19", skills: 3000, stars: 200 },
+                            { date: "2026-01-20", skills: 5000, stars: 400 },
+                            { date: "2026-01-21", skills: 6500, stars: 600 },
+                            { date: "2026-01-22", skills: 7500, stars: 800 },
+                            { date: "2026-01-23", skills: 9000, stars: 1000 },
+                            { date: "2026-01-24", skills: 12000, stars: 2000 },
+                            { date: "2026-01-25", skills: 18000, stars: 10000 },
+                            { date: "2026-01-26", skills: 23000, stars: 45000 },
+                            { date: "2026-01-27", skills: 27000, stars: 70000 },
+                            { date: "2026-01-28", skills: 30000, stars: 92000 },
+                            { date: "2026-01-29", skills: 32000, stars: 110000 },
+                            { date: "2026-01-30", skills: 33500, stars: 128000 },
+                            { date: "2026-01-31", skills: 34500, stars: 138000 },
+                            { date: "2026-02-01", skills: 35500, stars: 148000 },
+                            { date: "2026-02-02", skills: 36500, stars: 152000 },
+                            { date: "2026-02-03", skills: 37500, stars: 158000 },
+                            { date: "2026-02-04", skills: 38800, stars: 163000 },
+                            { date: "2026-02-05", skills: 40000, stars: 170000 }
+                        ];
+
+                        const parseDate = d3.timeParse("%Y-%m-%d");
+                        const formatDate = d3.timeFormat("%d/%m");
+                        const data = rawData.map(d => ({
+                            ...d,
+                            d: parseDate(d.date)
+                        }));
+
+                        // ===== CONTAINER E DIMENSÕES =====
+                        const container = d3.select("#growth-chart-v2");
+                        const rect = container.node().getBoundingClientRect();
+                        const width = rect.width || 800;
+                        const height = 480;
+                        const margin = { top: 30, right: 90, bottom: 55, left: 75 };
+                        const innerW = width - margin.left - margin.right;
+                        const innerH = height - margin.top - margin.bottom;
+
+                        const svg = container.append("svg")
+                            .attr("width", "100%")
+                            .attr("height", height)
+                            .attr("viewBox", `0 0 ${width} ${height}`)
+                            .style("font-family", "Inter, system-ui, sans-serif");
+
+                        // ===== DEFS: Gradientes e Filtros =====
+                        const defs = svg.append("defs");
+
+                        // Gradiente para área de Skills
+                        const gradSkills = defs.append("linearGradient")
+                            .attr("id", "grad-skills-area")
+                            .attr("x1", "0%").attr("y1", "0%")
+                            .attr("x2", "0%").attr("y2", "100%");
+                        gradSkills.append("stop").attr("offset", "0%")
+                            .attr("stop-color", "#7cacf8").attr("stop-opacity", 0.25);
+                        gradSkills.append("stop").attr("offset", "100%")
+                            .attr("stop-color", "#7cacf8").attr("stop-opacity", 0.02);
+
+                        // Glow filter para pontos hover
+                        const glowPt = defs.append("filter").attr("id", "glow-point");
+                        glowPt.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "blur");
+                        const mergeGlow = glowPt.append("feMerge");
+                        mergeGlow.append("feMergeNode").attr("in", "blur");
+                        mergeGlow.append("feMergeNode").attr("in", "SourceGraphic");
+
+                        const g = svg.append("g")
+                            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                        // ===== ESCALAS (d3.scaleTime, d3.scaleLinear) =====
+                        const x = d3.scaleTime()
+                            .domain(d3.extent(data, d => d.d))
+                            .range([0, innerW]);
+
+                        const yLeft = d3.scaleLinear()
+                            .domain([0, 40000])
+                            .range([innerH, 0])
+                            .nice();
+
+                        const yRight = d3.scaleLinear()
+                            .domain([0, 200000])
+                            .range([innerH, 0])
+                            .nice();
+
+                        // ===== GRID (linhas horizontais sutis) =====
+                        g.append("g")
+                            .attr("class", "grid-lines")
+                            .selectAll("line")
+                            .data(yLeft.ticks(6))
+                            .join("line")
+                            .attr("x1", 0).attr("x2", innerW)
+                            .attr("y1", d => yLeft(d)).attr("y2", d => yLeft(d))
+                            .attr("stroke", "rgba(255,255,255,0.04)")
+                            .attr("stroke-width", 1);
+
+                        // ===== ÁREA SOMBREADA (Skills) =====
+                        const areaGen = d3.area()
+                            .x(d => x(d.d))
+                            .y0(innerH)
+                            .y1(d => yLeft(d.skills))
+                            .curve(d3.curveMonotoneX);
+
+                        const areaPath = g.append("path")
+                            .datum(data)
+                            .attr("fill", "url(#grad-skills-area)")
+                            .attr("d", areaGen)
+                            .style("opacity", 0);
+
+                        // ===== LINHAS =====
+                        const lineSkillsGen = d3.line()
+                            .x(d => x(d.d))
+                            .y(d => yLeft(d.skills))
+                            .curve(d3.curveMonotoneX);
+
+                        const lineStarsGen = d3.line()
+                            .x(d => x(d.d))
+                            .y(d => yRight(d.stars))
+                            .curve(d3.curveMonotoneX);
+
+                        const pathSkills = g.append("path")
+                            .datum(data)
+                            .attr("fill", "none")
+                            .attr("stroke", "#7cacf8")
+                            .attr("stroke-width", 2.5)
+                            .attr("stroke-linejoin", "round")
+                            .attr("stroke-linecap", "round")
+                            .attr("d", lineSkillsGen);
+
+                        const pathStars = g.append("path")
+                            .datum(data)
+                            .attr("fill", "none")
+                            .attr("stroke", "#f0937a")
+                            .attr("stroke-width", 2.5)
+                            .attr("stroke-linejoin", "round")
+                            .attr("stroke-linecap", "round")
+                            .attr("d", lineStarsGen);
+
+                        // ===== PONTOS (círculos para Skills, quadrados para Stars) =====
+                        const dotsSkills = g.selectAll(".dot-sk")
+                            .data(data)
+                            .join("circle")
+                            .attr("class", "dot-sk")
+                            .attr("cx", d => x(d.d))
+                            .attr("cy", d => yLeft(d.skills))
+                            .attr("r", 4)
+                            .attr("fill", "#7cacf8")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 1.5)
+                            .style("opacity", 0);
+
+                        const dotsStars = g.selectAll(".dot-st")
+                            .data(data)
+                            .join("rect")
+                            .attr("class", "dot-st")
+                            .attr("x", d => x(d.d) - 4)
+                            .attr("y", d => yRight(d.stars) - 4)
+                            .attr("width", 8)
+                            .attr("height", 8)
+                            .attr("fill", "#f0937a")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 1.5)
+                            .style("opacity", 0);
+
+                        // ===== EIXOS =====
+                        // Eixo X (datas)
+                        const xAxisG = g.append("g")
+                            .attr("transform", `translate(0,${innerH})`)
+                            .call(d3.axisBottom(x)
+                                .ticks(7)
+                                .tickFormat(d3.timeFormat("%d-%m-%y"))
+                            );
+                        xAxisG.selectAll("line, path").attr("stroke", "rgba(255,255,255,0.15)");
+                        xAxisG.selectAll("text")
+                            .attr("fill", "rgba(255,255,255,0.45)")
+                            .attr("font-size", "11px")
+                            .attr("dy", "1.2em");
+
+                        // Eixo Y Esquerdo (Cumulative Skills)
+                        const yLeftAxisG = g.append("g")
+                            .call(d3.axisLeft(yLeft)
+                                .ticks(6)
+                                .tickFormat(d => d === 0 ? "0" : (d / 1000).toFixed(0) + "k")
+                            );
+                        yLeftAxisG.selectAll("line, path").attr("stroke", "rgba(255,255,255,0.1)");
+                        yLeftAxisG.selectAll("text")
+                            .attr("fill", "#7cacf8")
+                            .attr("font-size", "11px");
+
+                        // Label Y Esquerdo (rotacionado)
+                        g.append("text")
+                            .attr("transform", `rotate(-90)`)
+                            .attr("x", -innerH / 2)
+                            .attr("y", -55)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "#7cacf8")
+                            .attr("font-size", "13px")
+                            .attr("font-weight", "600")
+                            .text("Cumulative Skills");
+
+                        // Eixo Y Direito (Cumulative Stars)
+                        const yRightAxisG = g.append("g")
+                            .attr("transform", `translate(${innerW},0)`)
+                            .call(d3.axisRight(yRight)
+                                .ticks(6)
+                                .tickFormat(d => d === 0 ? "0" : (d / 1000).toFixed(0) + "k")
+                            );
+                        yRightAxisG.selectAll("line, path").attr("stroke", "rgba(255,255,255,0.1)");
+                        yRightAxisG.selectAll("text")
+                            .attr("fill", "#f0937a")
+                            .attr("font-size", "11px");
+
+                        // Label Y Direito (rotacionado)
+                        g.append("text")
+                            .attr("transform", `rotate(90)`)
+                            .attr("x", innerH / 2)
+                            .attr("y", -innerW - 60)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "#f0937a")
+                            .attr("font-size", "13px")
+                            .attr("font-weight", "600")
+                            .text("Cumulative Stars");
+
+                        // ===== LEGENDA INTEGRADA AO SVG =====
+                        const legend = g.append("g")
+                            .attr("transform", `translate(${innerW * 0.02}, 8)`);
+
+                        // Background da legenda
+                        legend.append("rect")
+                            .attr("x", -8).attr("y", -14)
+                            .attr("width", 260).attr("height", 56)
+                            .attr("rx", 8)
+                            .attr("fill", "rgba(0,0,0,0.5)")
+                            .attr("stroke", "rgba(255,255,255,0.08)")
+                            .attr("stroke-width", 1);
+
+                        // Skills legend
+                        legend.append("line")
+                            .attr("x1", 4).attr("y1", 5)
+                            .attr("x2", 30).attr("y2", 5)
+                            .attr("stroke", "#7cacf8").attr("stroke-width", 2.5);
+                        legend.append("circle")
+                            .attr("cx", 17).attr("cy", 5).attr("r", 4)
+                            .attr("fill", "#7cacf8").attr("stroke", "#fff").attr("stroke-width", 1);
+                        legend.append("text")
+                            .attr("x", 38).attr("y", 9)
+                            .attr("fill", "rgba(255,255,255,0.7)").attr("font-size", "12px")
+                            .text("Cumulative Skills");
+
+                        // Stars legend
+                        legend.append("line")
+                            .attr("x1", 4).attr("y1", 28)
+                            .attr("x2", 30).attr("y2", 28)
+                            .attr("stroke", "#f0937a").attr("stroke-width", 2.5);
+                        legend.append("rect")
+                            .attr("x", 13).attr("y", 24)
+                            .attr("width", 8).attr("height", 8)
+                            .attr("fill", "#f0937a").attr("stroke", "#fff").attr("stroke-width", 1);
+                        legend.append("text")
+                            .attr("x", 38).attr("y", 32)
+                            .attr("fill", "rgba(255,255,255,0.7)").attr("font-size", "12px")
+                            .text("OpenClaw Cumulative Stars");
+
+                        // ===== TOOLTIP INTERATIVO (crosshair vertical) =====
+                        const tooltipLine = g.append("line")
+                            .attr("y1", 0).attr("y2", innerH)
+                            .attr("stroke", "rgba(255,255,255,0.15)")
+                            .attr("stroke-width", 1)
+                            .attr("stroke-dasharray", "4,3")
+                            .style("opacity", 0);
+
+                        const tooltipDotSkill = g.append("circle")
+                            .attr("r", 6)
+                            .attr("fill", "#7cacf8")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 2)
+                            .attr("filter", "url(#glow-point)")
+                            .style("opacity", 0);
+
+                        const tooltipDotStar = g.append("rect")
+                            .attr("width", 10).attr("height", 10)
+                            .attr("fill", "#f0937a")
+                            .attr("stroke", "#fff")
+                            .attr("stroke-width", 2)
+                            .attr("filter", "url(#glow-point)")
+                            .style("opacity", 0);
+
+                        // Tooltip HTML overlay
+                        const tooltipDiv = container.append("div")
+                            .style("position", "absolute")
+                            .style("pointer-events", "none")
+                            .style("background", "rgba(15,15,15,0.92)")
+                            .style("backdrop-filter", "blur(12px)")
+                            .style("border", "1px solid rgba(255,255,255,0.12)")
+                            .style("border-radius", "10px")
+                            .style("padding", "10px 14px")
+                            .style("font-size", "12px")
+                            .style("color", "#fff")
+                            .style("opacity", 0)
+                            .style("transition", "opacity 0.15s ease")
+                            .style("z-index", 100)
+                            .style("box-shadow", "0 8px 32px rgba(0,0,0,0.5)")
+                            .style("min-width", "160px");
+
+                        // Overlay rect invisível para capturar mouse events
+                        const bisect = d3.bisector(d => d.d).left;
+
+                        g.append("rect")
+                            .attr("width", innerW).attr("height", innerH)
+                            .attr("fill", "transparent")
+                            .on("mousemove", function (event) {
+                                const [mx] = d3.pointer(event);
+                                const x0 = x.invert(mx);
+                                let i = bisect(data, x0, 1);
+                                if (i >= data.length) i = data.length - 1;
+                                const d0 = data[i - 1], d1 = data[i];
+                                const d = (!d0) ? d1 : (!d1) ? d0 : (x0 - d0.d > d1.d - x0 ? d1 : d0);
+
+                                const px = x(d.d);
+                                const pySkill = yLeft(d.skills);
+                                const pyStar = yRight(d.stars);
+
+                                tooltipLine.attr("x1", px).attr("x2", px).style("opacity", 1);
+                                tooltipDotSkill.attr("cx", px).attr("cy", pySkill).style("opacity", 1);
+                                tooltipDotStar.attr("x", px - 5).attr("y", pyStar - 5).style("opacity", 1);
+
+                                // Posição do tooltip HTML
+                                const containerRect = container.node().getBoundingClientRect();
+                                const svgRect = container.select("svg").node().getBoundingClientRect();
+                                const scaleX = svgRect.width / width;
+                                const absX = margin.left * scaleX + px * scaleX;
+                                const absY = margin.top * scaleX + Math.min(pySkill, pyStar) * scaleX;
+
+                                let tooltipLeft = absX + 16;
+                                if (tooltipLeft + 170 > containerRect.width) tooltipLeft = absX - 180;
+
+                                tooltipDiv
+                                    .style("left", tooltipLeft + "px")
+                                    .style("top", (absY - 10) + "px")
+                                    .style("opacity", 1)
+                                    .html(`
+                                        <div style="font-weight:700; margin-bottom:6px; color:rgba(255,255,255,0.5); font-size:11px; letter-spacing:1px;">${formatDate(d.d)}/2026</div>
+                                        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                            <span style="width:8px;height:8px;border-radius:50%;background:#7cacf8;display:inline-block;"></span>
+                                            <span style="color:#7cacf8;font-weight:600;">Skills:</span>
+                                            <span style="font-weight:700;">${d.skills.toLocaleString("pt-BR")}</span>
+                                        </div>
+                                        <div style="display:flex; align-items:center; gap:6px;">
+                                            <span style="width:8px;height:8px;background:#f0937a;display:inline-block;"></span>
+                                            <span style="color:#f0937a;font-weight:600;">Stars:</span>
+                                            <span style="font-weight:700;">${d.stars.toLocaleString("pt-BR")}</span>
+                                        </div>
+                                    `);
+                            })
+                            .on("mouseleave", function () {
+                                tooltipLine.style("opacity", 0);
+                                tooltipDotSkill.style("opacity", 0);
+                                tooltipDotStar.style("opacity", 0);
+                                tooltipDiv.style("opacity", 0);
+                            });
+
+                        // ===== ANIMAÇÃO DE ENTRADA (IntersectionObserver) =====
+                        function animateChart() {
+                            // Animar a área
+                            areaPath.transition().duration(800).ease(d3.easeCubicOut).style("opacity", 1);
+
+                            // Animar as linhas (stroke-dasharray draw-on)
+                            [pathSkills, pathStars].forEach((path, idx) => {
+                                const totalLen = path.node().getTotalLength();
+                                path
+                                    .attr("stroke-dasharray", totalLen + " " + totalLen)
+                                    .attr("stroke-dashoffset", totalLen)
+                                    .transition()
+                                    .delay(idx * 300)
+                                    .duration(2200)
+                                    .ease(d3.easeQuadOut)
+                                    .attr("stroke-dashoffset", 0);
+                            });
+
+                            // Animar pontos (staggered)
+                            dotsSkills.transition()
+                                .delay((d, i) => 600 + i * 80)
+                                .duration(400)
+                                .ease(d3.easeBackOut)
+                                .style("opacity", 1);
+
+                            dotsStars.transition()
+                                .delay((d, i) => 900 + i * 80)
+                                .duration(400)
+                                .ease(d3.easeBackOut)
+                                .style("opacity", 1);
+                        }
+
+                        // Observer: animar quando o card entra na viewport
+                        const chartEl = document.getElementById("growth-chart-v2");
+                        let chartAnimated = false;
+                        const chartObserver = new IntersectionObserver((entries) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting && !chartAnimated) {
+                                    chartAnimated = true;
+                                    animateChart();
+                                    chartObserver.unobserve(chartEl);
+                                }
+                            });
+                        }, { threshold: 0.25 });
+                        chartObserver.observe(chartEl);
+                    })();
+                </script>
+            </div>
+
+            <!-- Legenda da Figura -->
+            <p class="mt-8 text-white/50 text-xs leading-relaxed italic border-t border-white/5 pt-6">
+                <strong class="text-[#FFA203] not-italic mr-1">Figura 1:</strong> Tendência de crescimento das agent
+                skills. De acordo com a renomada plataforma skills.sh, o número de habilidades registradas experimentou
+                um crescimento rápido de meados de janeiro até o início de fevereiro de 2026, ultrapassando 40.000 até o
+                início de fevereiro. No mesmo período, a popular aplicação de skills de código aberto OpenClaw (OpenClaw
+                Community, 2026) teve um aumento acentuado de estrelas no GitHub, atingindo mais de 25.000 estrelas em
+                um único dia no final de janeiro, seguido por um declínio gradual, com o número total de estrelas
+                ultrapassando 170 mil.
+            </p>
+        </div>
+
+        <!-- Card: Especificação -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex flex-col md:flex-row gap-12 items-center">
+                <div class="w-full md:w-1/2">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                            <i data-lucide="list-checks" class="text-[#FFA203] w-6 h-6"></i>
+                        </div>
+                        <h3 class="text-3xl font-bold text-white">Especificação</h3>
+                    </div>
+                    <p class="text-white/70 mb-8 leading-relaxed">
+                        O formato <strong>Agent Skills</strong> é um padrão aberto e extensível para definir capacidades
+                        que podem ser descobertas e utilizadas por agentes de IA em qualquer ambiente.
+                    </p>
+
+                    <div class="space-y-6">
+                        <div class="flex gap-4">
+                            <i data-lucide="folder-tree" class="text-[#FFA203] shrink-0 w-6 h-6"></i>
+                            <div>
+                                <h4 class="text-white font-bold mb-1">Estrutura de Diretórios</h4>
+                                <p class="text-sm text-white/50">Um diretório contendo <code>SKILL.md</code>
+                                    (obrigatório) e pastas opcionais para <code>scripts/</code>,
+                                    <code>references/</code> e <code>assets/</code>.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <i data-lucide="file-code-2" class="text-[#FFA203] shrink-0 w-6 h-6"></i>
+                            <div>
+                                <h4 class="text-white font-bold mb-1">Formato SKILL.md</h4>
+                                <p class="text-sm text-white/50">Arquivo Markdown com YAML frontmatter contendo
+                                    <code>name</code>, <code>description</code>, <code>license</code> e
+                                    <code>compatibility</code>.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full md:w-1/2 p-1 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                    <div class="bg-[#1a1a1a] rounded-xl p-6 font-mono text-xs sm:text-sm overflow-hidden">
+                        <div class="flex gap-2 mb-4">
+                            <div class="w-3 h-3 rounded-full bg-red-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/50"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500/50"></div>
+                        </div>
+                        <pre class="text-white/80 leading-relaxed"><code>---
+name: data-analysis
+description: Analyze complex datasets...
+compatibility: Requires python, pandas
+---
+
+# Data Analysis Skill
+Instructions for the agent...</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Arquitetura Visual D3 -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="network" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Arquitetura da Skill</h3>
+            </div>
+
+            <p class="text-white/70 mb-10 leading-relaxed max-w-2xl">
+                Representação hierárquica da estrutura padrão de uma habilidade, garantindo modularidade e fácil
+                descoberta pelos agentes.
+            </p>
+
+            <div id="architecture-viz"
+                class="w-full h-[450px] bg-black/20 rounded-2xl border border-white/5 relative overflow-hidden backdrop-blur-sm">
+                <style>
+                    .node circle {
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    }
+
+                    .node:hover circle {
+                        r: 10;
+                        fill: #FFA203 !important;
+                    }
+
+                    .link-path {
+                        stroke-dasharray: 10;
+                        animation: dashMove 30s linear infinite;
+                    }
+
+                    @keyframes dashMove {
+                        to {
+                            stroke-dashoffset: -1000;
+                        }
+                    }
+                </style>
+                <script>
+                    (function () {
+                        const data = {
+                            name: "my-skill/",
+                            desc: "Root Directory",
+                            children: [
+                                { name: "SKILL.md", desc: "Required: instructions + metadata", type: "file" },
+                                { name: "scripts/", desc: "Optional: executable code", type: "folder" },
+                                { name: "references/", desc: "Optional: documentation", type: "folder" },
+                                { name: "assets/", desc: "Optional: templates, resources", type: "folder" }
+                            ]
+                        };
+
+                        const container = d3.select("#architecture-viz");
+                        const rect = container.node().getBoundingClientRect();
+                        const width = rect.width || 800;
+                        const height = 450;
+                        const margin = { top: 40, right: 280, bottom: 40, left: 120 };
+
+                        const svg = container.append("svg")
+                            .attr("width", "100%")
+                            .attr("height", height)
+                            .attr("viewBox", `0 0 ${width} ${height}`)
+                            .append("g")
+                            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+                        // Glow filter
+                        const defs = svg.append("defs");
+                        const filter = defs.append("filter").attr("id", "glow-orange");
+                        filter.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "blur");
+                        const feMerge = filter.append("feMerge");
+                        feMerge.append("feMergeNode").attr("in", "blur");
+                        feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+
+                        const tree = d3.tree().size([height - margin.top - margin.bottom, width - margin.left - margin.right]);
+                        const root = d3.hierarchy(data);
+                        tree(root);
+
+                        // Draw lines
+                        svg.selectAll(".link")
+                            .data(root.links())
+                            .join("path")
+                            .attr("class", "link-path")
+                            .attr("d", d3.linkHorizontal()
+                                .x(d => d.y)
+                                .y(d => d.x))
+                            .attr("fill", "none")
+                            .attr("stroke", "rgba(255, 162, 3, 0.4)")
+                            .attr("stroke-width", 4);
+
+                        // Draw nodes
+                        const node = svg.selectAll(".node")
+                            .data(root.descendants())
+                            .join("g")
+                            .attr("class", "node")
+                            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+                        node.append("circle")
+                            .attr("r", 10)
+                            .attr("fill", d => d.children ? "#FFA203" : "#1a1a1a")
+                            .attr("stroke", "#FFA203")
+                            .attr("stroke-width", 2)
+                            .attr("filter", "url(#glow-orange)");
+
+                        // Titles
+                        node.append("text")
+                            .attr("dy", "0.31em")
+                            .attr("x", d => d.children ? -18 : 18)
+                            .attr("text-anchor", d => d.children ? "end" : "start")
+                            .attr("fill", "#fff")
+                            .attr("font-family", "Inter, sans-serif")
+                            .attr("font-size", "18px")
+                            .attr("font-weight", "600")
+                            .text(d => d.data.name);
+
+                        // Descriptions
+                        node.append("text")
+                            .attr("dy", "1.8em")
+                            .attr("x", d => d.children ? -18 : 18)
+                            .attr("text-anchor", d => d.children ? "end" : "start")
+                            .attr("fill", "rgba(255, 255, 255, 0.4)")
+                            .attr("font-family", "Inter, sans-serif")
+                            .attr("font-size", "12px")
+                            .attr("font-weight", "400")
+                            .text(d => d.data.desc);
+                    })();
+                </script>
+            </div>
+        </div>
+
+
+        <!-- Card: Como Funciona o Skill Router (Animação D3.js) -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="route" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-3xl font-bold text-white">Como Funciona o <span class="text-[#FFA203]">Skill
+                            Router</span></h3>
+                    <p class="text-white/50 text-sm italic">Arquitetura de 3 níveis para carregamento inteligente de
+                        skills</p>
+                </div>
+            </div>
+
+            <p class="text-white/70 mb-8 leading-relaxed max-w-3xl">
+                O Skill Router atua como um despachante semântico: recebe a query do usuário, identifica a intenção e
+                carrega progressivamente apenas os dados necessários — preservando a <strong
+                    class="text-[#FFA203]">context window</strong>.
+            </p>
+
+            <div id="skill-router-viz"
+                class="w-full bg-black/20 rounded-2xl border border-white/5 relative overflow-hidden backdrop-blur-sm"
+                style="height: 620px;">
+                <script>
+                    (function () {
+                        const container = d3.select("#skill-router-viz");
+                        const rect = container.node().getBoundingClientRect();
+                        const width = rect.width || 900;
+                        const height = 620;
+
+                        const svg = container.append("svg")
+                            .attr("width", "100%")
+                            .attr("height", height)
+                            .attr("viewBox", `0 0 ${width} ${height}`)
+                            .style("font-family", "Inter, system-ui, sans-serif");
+
+                        // Defs: gradients, filters, markers
+                        const defs = svg.append("defs");
+
+                        // Glow filter
+                        const glow = defs.append("filter").attr("id", "glow-router");
+                        glow.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
+                        const feMerge = glow.append("feMerge");
+                        feMerge.append("feMergeNode").attr("in", "blur");
+                        feMerge.append("feMergeNode").attr("in", "SourceGraphic");
+
+                        // Arrow marker
+                        defs.append("marker")
+                            .attr("id", "arrowhead")
+                            .attr("viewBox", "0 0 10 7")
+                            .attr("refX", 5).attr("refY", 3.5)
+                            .attr("markerWidth", 8).attr("markerHeight", 6)
+                            .attr("orient", "auto")
+                            .append("polygon")
+                            .attr("points", "0 0, 10 3.5, 0 7")
+                            .attr("fill", "#FFA203");
+
+                        // Layout constants
+                        const leftMargin = 40;
+                        const boxWidth = width - 100;
+                        const centerX = width / 2;
+
+                        // ===== TOPO: USER QUERY + SKILL ROUTER =====
+                        const topY = 35;
+
+                        // User Query box
+                        const uqGroup = svg.append("g").attr("class", "router-node").style("opacity", 0);
+                        uqGroup.append("rect")
+                            .attr("x", leftMargin).attr("y", topY)
+                            .attr("width", 180).attr("height", 50)
+                            .attr("rx", 6)
+                            .attr("fill", "none")
+                            .attr("stroke", "rgba(255,255,255,0.5)")
+                            .attr("stroke-width", 2);
+                        uqGroup.append("text")
+                            .attr("x", leftMargin + 90).attr("y", topY + 22)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "#fff").attr("font-weight", "700").attr("font-size", "13px")
+                            .text("USER QUERY");
+                        uqGroup.append("text")
+                            .attr("x", leftMargin + 90).attr("y", topY + 40)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "rgba(255,255,255,0.4)").attr("font-size", "10px").attr("font-style", "italic")
+                            .text('"Fill out this PDF"');
+
+                        // Arrow from User Query to Router
+                        const arrowToRouter = svg.append("line")
+                            .attr("x1", leftMargin + 180).attr("y1", topY + 25)
+                            .attr("x2", centerX - 80).attr("y2", topY + 25)
+                            .attr("stroke", "rgba(255,255,255,0.3)")
+                            .attr("stroke-width", 2)
+                            .attr("marker-end", "url(#arrowhead)")
+                            .style("opacity", 0);
+
+                        // Skill Router diamond
+                        const routerGroup = svg.append("g").attr("class", "router-node").style("opacity", 0);
+                        const diamondSize = 46;
+                        const diamondCX = centerX;
+                        const diamondCY = topY + 25;
+                        routerGroup.append("polygon")
+                            .attr("points", `${diamondCX},${diamondCY - diamondSize} ${diamondCX + diamondSize * 1.6},${diamondCY} ${diamondCX},${diamondCY + diamondSize} ${diamondCX - diamondSize * 1.6},${diamondCY}`)
+                            .attr("fill", "rgba(255,162,3,0.15)")
+                            .attr("stroke", "#FFA203")
+                            .attr("stroke-width", 2)
+                            .attr("filter", "url(#glow-router)");
+                        routerGroup.append("text")
+                            .attr("x", diamondCX).attr("y", diamondCY - 6)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "#FFA203").attr("font-weight", "700").attr("font-size", "11px")
+                            .text("SKILL ROUTER");
+                        routerGroup.append("text")
+                            .attr("x", diamondCX).attr("y", diamondCY + 10)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "rgba(255,162,3,0.6)").attr("font-size", "9px")
+                            .text("Matches Intent");
+
+                        // Semantic Match label (curved dashed arrow)
+                        const smLabel = svg.append("g").style("opacity", 0).attr("class", "router-node");
+                        smLabel.append("text")
+                            .attr("x", diamondCX + diamondSize * 1.3 + 25).attr("y", diamondCY + 4)
+                            .attr("fill", "rgba(0,200,150,0.8)").attr("font-size", "11px").attr("font-weight", "600")
+                            .text("Semantic Match");
+
+                        // ===== LEVEL 1: METADATA =====
+                        const l1Y = 120;
+                        const l1Group = svg.append("g").attr("class", "level-block").style("opacity", 0);
+
+                        // Background
+                        l1Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l1Y)
+                            .attr("width", boxWidth).attr("height", 110)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(100,180,255,0.06)")
+                            .attr("stroke", "rgba(100,180,255,0.25)")
+                            .attr("stroke-width", 1.5);
+
+                        // Header bar
+                        l1Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l1Y)
+                            .attr("width", boxWidth).attr("height", 28)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(100,180,255,0.12)");
+                        // Fix bottom corners on header
+                        l1Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l1Y + 10)
+                            .attr("width", boxWidth).attr("height", 18)
+                            .attr("fill", "rgba(100,180,255,0.12)");
+
+                        l1Group.append("text")
+                            .attr("x", leftMargin + 16).attr("y", l1Y + 19)
+                            .attr("fill", "#fff").attr("font-weight", "800").attr("font-size", "12px")
+                            .text("LEVEL 1: METADATA (Always Loaded)");
+
+                        l1Group.append("text")
+                            .attr("x", leftMargin + boxWidth - 16).attr("y", l1Y + 19)
+                            .attr("text-anchor", "end")
+                            .attr("fill", "rgba(255,255,255,0.35)").attr("font-size", "11px")
+                            .text("~30 tokens / skill");
+
+                        // Code block inside
+                        const codeBlockX = leftMargin + 24;
+                        const codeBlockY = l1Y + 42;
+                        l1Group.append("rect")
+                            .attr("x", codeBlockX).attr("y", codeBlockY)
+                            .attr("width", boxWidth * 0.42).attr("height", 52)
+                            .attr("rx", 6)
+                            .attr("fill", "rgba(0,0,0,0.3)")
+                            .attr("stroke", "rgba(255,255,255,0.08)")
+                            .attr("stroke-width", 1);
+
+                        l1Group.append("text")
+                            .attr("x", codeBlockX + 12).attr("y", codeBlockY + 20)
+                            .attr("fill", "#60a5fa").attr("font-size", "11px").attr("font-family", "monospace")
+                            .text("name: pdf-processing");
+                        l1Group.append("text")
+                            .attr("x", codeBlockX + 12).attr("y", codeBlockY + 38)
+                            .attr("fill", "#60a5fa").attr("font-size", "11px").attr("font-family", "monospace")
+                            .text("description: Extract text and fill forms...");
+
+                        // Right label
+                        l1Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", codeBlockY + 18)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("YAML frontmatter pre-loaded");
+                        l1Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", codeBlockY + 36)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("in system prompt.");
+
+                        // ===== TRIGGER LABEL =====
+                        const triggerY = l1Y + 118;
+                        const triggerGroup = svg.append("g").attr("class", "router-node").style("opacity", 0);
+                        triggerGroup.append("line")
+                            .attr("x1", centerX).attr("y1", l1Y + 110)
+                            .attr("x2", centerX).attr("y2", triggerY + 14)
+                            .attr("stroke", "#FFA203")
+                            .attr("stroke-width", 2)
+                            .attr("stroke-dasharray", "6,4")
+                            .attr("marker-end", "url(#arrowhead)");
+                        triggerGroup.append("text")
+                            .attr("x", centerX + 12).attr("y", triggerY + 10)
+                            .attr("text-anchor", "start")
+                            .attr("fill", "#FFA203").attr("font-weight", "800").attr("font-size", "12px")
+                            .text("TRIGGER");
+
+                        // ===== LEVEL 2: INSTRUCTIONS =====
+                        const l2Y = triggerY + 28;
+                        const l2Group = svg.append("g").attr("class", "level-block").style("opacity", 0);
+
+                        l2Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l2Y)
+                            .attr("width", boxWidth).attr("height", 130)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(100,220,100,0.06)")
+                            .attr("stroke", "rgba(100,220,100,0.25)")
+                            .attr("stroke-width", 1.5);
+
+                        // Header bar
+                        l2Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l2Y)
+                            .attr("width", boxWidth).attr("height", 28)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(100,220,100,0.12)");
+                        l2Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l2Y + 10)
+                            .attr("width", boxWidth).attr("height", 18)
+                            .attr("fill", "rgba(100,220,100,0.12)");
+
+                        l2Group.append("text")
+                            .attr("x", leftMargin + 16).attr("y", l2Y + 19)
+                            .attr("fill", "#fff").attr("font-weight", "800").attr("font-size", "12px")
+                            .text("LEVEL 2: INSTRUCTIONS (Loaded on Trigger)");
+
+                        l2Group.append("text")
+                            .attr("x", leftMargin + boxWidth - 16).attr("y", l2Y + 19)
+                            .attr("text-anchor", "end")
+                            .attr("fill", "rgba(255,255,255,0.35)").attr("font-size", "11px")
+                            .text("200 - 2k tokens");
+
+                        // Code block
+                        const l2CodeX = leftMargin + 24;
+                        const l2CodeY = l2Y + 40;
+                        l2Group.append("rect")
+                            .attr("x", l2CodeX).attr("y", l2CodeY)
+                            .attr("width", boxWidth * 0.42).attr("height", 72)
+                            .attr("rx", 6)
+                            .attr("fill", "rgba(0,0,0,0.3)")
+                            .attr("stroke", "rgba(255,255,255,0.08)")
+                            .attr("stroke-width", 1);
+
+                        const l2Lines = [
+                            "# PDF Processing Skill",
+                            "def main(file_path):",
+                            '    """Orchestrates the workflow"""',
+                            "    import pdf_tools..."
+                        ];
+                        l2Lines.forEach((line, i) => {
+                            l2Group.append("text")
+                                .attr("x", l2CodeX + 12).attr("y", l2CodeY + 18 + i * 16)
+                                .attr("fill", i === 0 ? "#4ade80" : "#60a5fa")
+                                .attr("font-size", "10px").attr("font-family", "monospace")
+                                .text(line);
+                        });
+
+                        // Right label
+                        l2Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", l2CodeY + 28)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("Injects full SKILL.md body");
+                        l2Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", l2CodeY + 46)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("and modifies execution context.");
+
+                        // ===== ON DEMAND LABEL =====
+                        const onDemandY = l2Y + 138;
+                        const onDemandGroup = svg.append("g").attr("class", "router-node").style("opacity", 0);
+                        onDemandGroup.append("line")
+                            .attr("x1", centerX).attr("y1", l2Y + 130)
+                            .attr("x2", centerX).attr("y2", onDemandY + 14)
+                            .attr("stroke", "#FFA203")
+                            .attr("stroke-width", 2)
+                            .attr("stroke-dasharray", "6,4")
+                            .attr("marker-end", "url(#arrowhead)");
+                        onDemandGroup.append("text")
+                            .attr("x", centerX + 12).attr("y", onDemandY + 10)
+                            .attr("text-anchor", "start")
+                            .attr("fill", "#ef4444").attr("font-weight", "800").attr("font-size", "12px")
+                            .text("ON DEMAND");
+
+                        // ===== LEVEL 3: RESOURCES =====
+                        const l3Y = onDemandY + 28;
+                        const l3Group = svg.append("g").attr("class", "level-block").style("opacity", 0);
+
+                        l3Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l3Y)
+                            .attr("width", boxWidth).attr("height", 120)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(239,68,68,0.06)")
+                            .attr("stroke", "rgba(239,68,68,0.25)")
+                            .attr("stroke-width", 1.5);
+
+                        // Header bar
+                        l3Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l3Y)
+                            .attr("width", boxWidth).attr("height", 28)
+                            .attr("rx", 10)
+                            .attr("fill", "rgba(239,68,68,0.12)");
+                        l3Group.append("rect")
+                            .attr("x", leftMargin).attr("y", l3Y + 10)
+                            .attr("width", boxWidth).attr("height", 18)
+                            .attr("fill", "rgba(239,68,68,0.12)");
+
+                        l3Group.append("text")
+                            .attr("x", leftMargin + 16).attr("y", l3Y + 19)
+                            .attr("fill", "#fff").attr("font-weight", "800").attr("font-size", "12px")
+                            .text("LEVEL 3: RESOURCES (Dynamic Loading)");
+
+                        l3Group.append("text")
+                            .attr("x", leftMargin + boxWidth - 16).attr("y", l3Y + 19)
+                            .attr("text-anchor", "end")
+                            .attr("fill", "rgba(255,255,255,0.35)").attr("font-size", "11px")
+                            .text("Unbounded Cost");
+
+                        // Three sub-boxes
+                        const subBoxData = [
+                            { label: "Scripts", sub: ".py / .sh", color: "#60a5fa" },
+                            { label: "Reference", sub: "docs / pdfs", color: "#a78bfa" },
+                            { label: "Assets", sub: "templates", color: "#f472b6" }
+                        ];
+                        const subBoxW = (boxWidth * 0.42 - 24) / 3;
+                        subBoxData.forEach((d, i) => {
+                            const sbx = leftMargin + 24 + i * (subBoxW + 12);
+                            const sby = l3Y + 42;
+                            l3Group.append("rect")
+                                .attr("x", sbx).attr("y", sby)
+                                .attr("width", subBoxW).attr("height", 56)
+                                .attr("rx", 6)
+                                .attr("fill", "rgba(0,0,0,0.3)")
+                                .attr("stroke", "rgba(255,255,255,0.08)")
+                                .attr("stroke-width", 1);
+                            l3Group.append("text")
+                                .attr("x", sbx + subBoxW / 2).attr("y", sby + 24)
+                                .attr("text-anchor", "middle")
+                                .attr("fill", d.color).attr("font-weight", "700").attr("font-size", "12px")
+                                .text(d.label);
+                            l3Group.append("text")
+                                .attr("x", sbx + subBoxW / 2).attr("y", sby + 42)
+                                .attr("text-anchor", "middle")
+                                .attr("fill", "rgba(255,255,255,0.35)").attr("font-size", "9px").attr("font-style", "italic")
+                                .text(d.sub);
+                        });
+
+                        // Right description for L3
+                        l3Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", l3Y + 60)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("Only loaded if explicitly called");
+                        l3Group.append("text")
+                            .attr("x", leftMargin + boxWidth * 0.55).attr("y", l3Y + 78)
+                            .attr("fill", "rgba(255,255,255,0.45)").attr("font-size", "11px")
+                            .text("by Level 2 instructions.");
+
+                        // ===== CONTEXT WINDOW BAR (right side) =====
+                        const barGroup = svg.append("g").attr("class", "router-node").style("opacity", 0);
+                        const barX = leftMargin + boxWidth + 10;
+                        const barTop = l1Y;
+                        const barBottom = l3Y + 120;
+                        const barH = barBottom - barTop;
+
+                        // Gradient bar
+                        const grad = defs.append("linearGradient")
+                            .attr("id", "ctx-gradient")
+                            .attr("x1", "0%").attr("y1", "0%")
+                            .attr("x2", "0%").attr("y2", "100%");
+                        grad.append("stop").attr("offset", "0%").attr("stop-color", "#4ade80").attr("stop-opacity", 0.8);
+                        grad.append("stop").attr("offset", "50%").attr("stop-color", "#FFA203").attr("stop-opacity", 0.8);
+                        grad.append("stop").attr("offset", "100%").attr("stop-color", "#ef4444").attr("stop-opacity", 0.8);
+
+                        barGroup.append("rect")
+                            .attr("x", barX).attr("y", barTop)
+                            .attr("width", 6).attr("height", barH)
+                            .attr("rx", 3)
+                            .attr("fill", "url(#ctx-gradient)");
+
+                        // Arrow at bottom of bar
+                        barGroup.append("polygon")
+                            .attr("points", `${barX - 2},${barBottom + 4} ${barX + 8},${barBottom + 4} ${barX + 3},${barBottom + 14}`)
+                            .attr("fill", "#ef4444");
+
+                        // Vertical text label
+                        barGroup.append("text")
+                            .attr("x", barX + 22).attr("y", barTop + barH / 2)
+                            .attr("text-anchor", "middle")
+                            .attr("transform", `rotate(90, ${barX + 22}, ${barTop + barH / 2})`)
+                            .attr("fill", "rgba(255,255,255,0.7)").attr("font-size", "10px").attr("font-weight", "600")
+                            .attr("letter-spacing", "2px")
+                            .text("CONTEXT WINDOW CONSUMPTION");
+
+                        // ===== ANIMAÇÃO DE ENTRADA SEQUENCIAL =====
+                        const allGroups = [uqGroup, arrowToRouter, routerGroup, smLabel, l1Group, triggerGroup, l2Group, onDemandGroup, l3Group, barGroup];
+                        const delays = [200, 500, 700, 900, 1200, 1800, 2100, 2700, 3000, 3400];
+
+                        // Observer para animar quando visível
+                        const vizEl = document.getElementById("skill-router-viz");
+                        let hasAnimated = false;
+                        const observer = new IntersectionObserver((entries) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting && !hasAnimated) {
+                                    hasAnimated = true;
+                                    allGroups.forEach((g, i) => {
+                                        if (g.attr) {
+                                            // It's a d3 selection
+                                            g.transition()
+                                                .delay(delays[i])
+                                                .duration(600)
+                                                .ease(d3.easeBackOut)
+                                                .style("opacity", 1);
+                                        }
+                                    });
+                                    observer.unobserve(vizEl);
+                                }
+                            });
+                        }, { threshold: 0.3 });
+                        observer.observe(vizEl);
+
+                        // ===== INTERATIVIDADE: Hover nos Levels =====
+                        [l1Group, l2Group, l3Group].forEach(group => {
+                            const bg = group.select("rect");
+                            group.on("mouseenter", function () {
+                                d3.select(this).selectAll("rect").filter(function (d, i) { return i === 0; })
+                                    .transition().duration(200)
+                                    .attr("stroke-width", 3);
+                                d3.select(this).transition().duration(200)
+                                    .style("filter", "brightness(1.2)");
+                            }).on("mouseleave", function () {
+                                d3.select(this).selectAll("rect").filter(function (d, i) { return i === 0; })
+                                    .transition().duration(200)
+                                    .attr("stroke-width", 1.5);
+                                d3.select(this).transition().duration(200)
+                                    .style("filter", "brightness(1)");
+                            });
+                        });
+
+                        // ===== ANIMAÇÃO CONTÍNUA: Dashes pulsantes nas linhas =====
+                        // Pulse na borda do Skill Router diamond
+                        let pulsePhase = 0;
+                        function pulseRouter() {
+                            pulsePhase += 0.03;
+                            const opacity = 0.4 + Math.sin(pulsePhase) * 0.3;
+                            routerGroup.select("polygon")
+                                .attr("fill", `rgba(255,162,3,${opacity * 0.3})`);
+                            requestAnimationFrame(pulseRouter);
+                        }
+                        pulseRouter();
+                    })();
+                </script>
+            </div>
+
+            <!-- Legenda da Figura -->
+            <p class="mt-8 text-white/50 text-xs leading-relaxed italic border-t border-white/5 pt-6">
+                <strong class="text-[#FFA203] not-italic mr-1">Figura 2:</strong> Arquitetura do Skill Router em 3
+                níveis.
+                O <strong>Level 1</strong> (Metadata) é sempre carregado e custa apenas ~30 tokens por skill — inclui
+                apenas
+                nome e descrição no frontmatter YAML. O <strong>Level 2</strong> (Instructions) é injetado sob demanda
+                quando
+                o router detecta um match semântico, consumindo entre 200 e 2.000 tokens. O <strong>Level 3</strong>
+                (Resources)
+                contém scripts, referências e assets que só são carregados quando explicitamente solicitados pelo corpo
+                do SKILL.md,
+                com custo potencialmente ilimitado na context window.
+            </p>
+        </div>
+
+
+        <!-- Card: Anatomia de uma Skill (Animação D3 baseada na imagem) -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <i data-lucide="component" class="text-purple-400 w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-3xl font-bold text-white">Anatomia de uma <span class="text-[#FFA203]">Skill</span>
+                    </h3>
+                    <p class="text-white/50 text-sm italic">Como o arquivo SKILL.md organiza o conhecimento do agente
+                    </p>
+                </div>
+            </div>
+
+            <p class="text-white/70 mb-8 leading-relaxed max-w-3xl">
+                O arquivo <code class="text-[#FFA203]">SKILL.md</code> não é apenas documentação; é o cérebro modular da
+                habilidade. Ele define o que a skill faz, como deve ser usada e quais regras devem ser seguidas.
+            </p>
+
+            <div id="skill-anatomy-viz"
+                class="w-full bg-black/20 rounded-2xl border border-white/5 relative overflow-hidden backdrop-blur-sm"
+                style="height: 480px;">
+                <script>
+                    (function () {
+                        const container = d3.select("#skill-anatomy-viz");
+                        const rect = container.node().getBoundingClientRect();
+                        const width = rect.width || 900;
+                        const height = 480;
+
+                        const svg = container.append("svg")
+                            .attr("width", "100%")
+                            .attr("height", height)
+                            .attr("viewBox", `0 0 ${width} ${height}`)
+                            .style("font-family", "Inter, system-ui, sans-serif");
+
+                        const defs = svg.append("defs");
+
+                        // Glow Filter
+                        const glowAnatomy = defs.append("filter").attr("id", "glow-anatomy");
+                        glowAnatomy.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "blur");
+                        const mergeAnatomy = glowAnatomy.append("feMerge");
+                        mergeAnatomy.append("feMergeNode").attr("in", "blur");
+                        mergeAnatomy.append("feMergeNode").attr("in", "SourceGraphic");
+
+                        // Marker Arrow
+                        defs.append("marker")
+                            .attr("id", "arrow-anatomy")
+                            .attr("viewBox", "0 0 10 10")
+                            .attr("refX", 5).attr("refY", 5)
+                            .attr("markerWidth", 6).attr("markerHeight", 6)
+                            .attr("orient", "auto-start-reverse")
+                            .append("path")
+                            .attr("d", "M 0 0 L 10 5 L 0 10 z")
+                            .attr("fill", "rgba(255,162,3,0.8)");
+
+                        const centerX = width / 2;
+                        const centerY = height / 2;
+
+                        // 1. Skill Folder (Esquerda)
+                        const folderGroup = svg.append("g").attr("class", "anatomy-node").style("opacity", 0);
+                        folderGroup.attr("transform", `translate(${width * 0.15}, ${centerY - 60})`);
+
+                        folderGroup.append("path")
+                            .attr("d", "M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z")
+                            .attr("fill", "none")
+                            .attr("stroke", "white")
+                            .attr("stroke-width", 2)
+                            .attr("transform", "scale(4)");
+
+                        folderGroup.append("text")
+                            .attr("x", 44).attr("y", 110)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "white").attr("font-size", "22px").attr("font-weight", "bold")
+                            .text("Skill X");
+
+                        // 2. SKILL.md File (Centro)
+                        const fileGroup = svg.append("g").attr("class", "anatomy-node").style("opacity", 0);
+                        fileGroup.attr("transform", `translate(${width * 0.45 - 50}, ${centerY - 60})`);
+
+                        fileGroup.append("path")
+                            .attr("d", "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z")
+                            .attr("fill", "none")
+                            .attr("stroke", "white")
+                            .attr("stroke-width", 2)
+                            .attr("transform", "scale(4)");
+
+                        fileGroup.append("text")
+                            .attr("x", 40).attr("y", 110)
+                            .attr("text-anchor", "middle")
+                            .attr("fill", "white").attr("font-size", "20px").attr("font-weight", "bold")
+                            .text("SKILL.md");
+
+                        // Line from Folder to File - Adjusted to be between icons and avoid text
+                        const folderToFile = svg.append("path")
+                            .attr("d", `M ${width * 0.15 + 95} ${centerY - 10} L ${width * 0.45 - 60} ${centerY - 10}`)
+                            .attr("fill", "none")
+                            .attr("stroke", "white")
+                            .attr("stroke-width", 2)
+                            .attr("marker-end", "url(#arrow-anatomy)")
+                            .style("opacity", 0);
+
+                        // 3. Expanded Blocks (Direita)
+                        const blocksGroup = svg.append("g").attr("class", "anatomy-node").style("opacity", 0);
+                        const blockStartX = width * 0.65;
+                        const blockWidth = width * 0.3;
+                        const blockHeight = 60;
+                        const blockSpacing = 2;
+
+                        const blocksData = [
+                            { name: "Metadata", color: "rgba(168, 85, 247, 0.3)", stroke: "#A855F7", label: "YAML Frontmatter" },
+                            { name: "Instructions", color: "rgba(55, 65, 81, 0.4)", stroke: "#9CA3AF", label: "Markdown Guide" },
+                            { name: "Guardrails", color: "rgba(124, 45, 18, 0.4)", stroke: "#92400E", label: "Execution Rules" },
+                            { name: "Script Rules", color: "rgba(30, 58, 138, 0.4)", stroke: "#3B82F6", label: "Logic & Entrypoint" }
+                        ];
+
+                        blocksData.forEach((d, i) => {
+                            const group = blocksGroup.append("g")
+                                .attr("transform", `translate(${blockStartX}, ${centerY - 120 + i * (blockHeight + blockSpacing)})`);
+
+                            group.append("rect")
+                                .attr("width", blockWidth).attr("height", blockHeight)
+                                .attr("fill", d.color)
+                                .attr("stroke", d.stroke)
+                                .attr("stroke-width", 2);
+
+                            group.append("text")
+                                .attr("x", blockWidth / 2).attr("y", blockHeight / 2 - 5)
+                                .attr("text-anchor", "middle")
+                                .attr("fill", "white").attr("font-weight", "bold").attr("font-size", "14px")
+                                .text(d.name);
+
+                            group.append("text")
+                                .attr("x", blockWidth / 2).attr("y", blockHeight / 2 + 15)
+                                .attr("text-anchor", "middle")
+                                .attr("fill", "rgba(255,255,255,0.5)").attr("font-size", "10px")
+                                .text(d.label);
+
+                            // Icons (simplified)
+                            group.append("path")
+                                .attr("d", "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zM13 9V3.5L18.5 9H13z")
+                                .attr("fill", "white")
+                                .attr("transform", `translate(${blockWidth - 30}, 5) scale(0.8)`)
+                                .style("opacity", 0.3);
+                        });
+
+                        // Dashed lines from SKILL.md to Blocks
+                        const expansionLines = blocksGroup.append("path")
+                            .attr("d", `M ${width * 0.45 + 50} ${centerY - 10} L ${blockStartX - 10} ${centerY - 120} M ${width * 0.45 + 50} ${centerY + 30} L ${blockStartX - 10} ${centerY + 120}`)
+                            .attr("fill", "none")
+                            .attr("stroke", "white")
+                            .attr("stroke-dasharray", "4,4")
+                            .style("opacity", 0.3);
+
+                        // Animation sequences
+                        const vizAnatomyEl = document.getElementById("skill-anatomy-viz");
+                        let hasAnatomyAnimated = false;
+                        const anatomyObserver = new IntersectionObserver((entries) => {
+                            entries.forEach(entry => {
+                                if (entry.isIntersecting && !hasAnatomyAnimated) {
+                                    hasAnatomyAnimated = true;
+
+                                    // 1. Folder appear
+                                    folderGroup.transition().duration(800).style("opacity", 1);
+
+                                    // 2. Line folder to file
+                                    folderToFile.transition().delay(800).duration(1000).style("opacity", 1);
+
+                                    // 3. File appear
+                                    fileGroup.transition().delay(1800).duration(800).style("opacity", 1);
+
+                                    // 4. Expansion lines and blocks
+                                    blocksGroup.transition().delay(2600).duration(1000).style("opacity", 1);
+
+                                    anatomyObserver.unobserve(vizAnatomyEl);
+                                }
+                            });
+                        }, { threshold: 0.3 });
+                        anatomyObserver.observe(vizAnatomyEl);
+
+                    })();
+                </script>
+            </div>
+
+            <p class="mt-8 text-white/50 text-xs leading-relaxed italic border-t border-white/5 pt-6">
+                <strong class="text-[#FFA203] not-italic mr-1">Figura 3:</strong> Estrutura interna de uma Skill. O
+                diretório da skill contém o arquivo central <code class="text-white">SKILL.md</code>, que se desdobra em
+                quatro camadas críticas: <strong>Metadata</strong> (definição e compatibilidade),
+                <strong>Instructions</strong> (orientação principal por markdown), <strong>Guardrails</strong> (limites
+                e segurança) e <strong>Scripts Rules</strong> (lógica executável e pontos de entrada).
+            </p>
+        </div>
+
+        <!-- Card: Campos do SKILL.md -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="layout-list" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Campos do SKILL.md</h3>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/10 text-[#FFA203] text-sm uppercase tracking-wider">
+                            <th class="py-4 px-4 font-bold">Campo</th>
+                            <th class="py-4 px-4 font-bold text-center">Obrigatório</th>
+                            <th class="py-4 px-4 font-bold">Restrições</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-white/80 divide-y divide-white/5">
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">name</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="bg-[#FFA203] text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Sim</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Máximo de 64 caracteres. Somente letras minúsculas, números e
+                                hífens. Não deve começar nem terminar com hífen.</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">description</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="bg-[#FFA203] text-black text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Sim</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Máximo de 1024 caracteres. Descreve o que a habilidade faz e
+                                quando usá-la.</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">license</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="text-white/40 text-[10px] font-bold px-2 py-0.5 border border-white/20 rounded-full uppercase">Não</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Nome da licença ou referência a um arquivo de licença
+                                incluído.</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">compatibility</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="text-white/40 text-[10px] font-bold px-2 py-0.5 border border-white/20 rounded-full uppercase">Não</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Máximo de 500 caracteres. Indica os requisitos do ambiente
+                                (produto pretendido, pacotes, acesso à rede, etc.).</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">metadata</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="text-white/40 text-[10px] font-bold px-2 py-0.5 border border-white/20 rounded-full uppercase">Não</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Mapeamento arbitrário de chave-valor para metadados
+                                adicionais.</td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition-colors">
+                            <td class="py-4 px-4 font-mono text-sm">allowed-tools</td>
+                            <td class="py-4 px-4 text-center"><span
+                                    class="text-white/40 text-[10px] font-bold px-2 py-0.5 border border-white/20 rounded-full uppercase">Não</span>
+                            </td>
+                            <td class="py-4 px-4 text-sm">Lista delimitada por espaços de ferramentas pré-aprovadas que
+                                a habilidade pode usar. (Experimental)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Card: Detalhes do Campo Name -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="info" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Regras do Campo: <span class="text-[#FFA203]">name</span></h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="space-y-6">
+                    <p class="text-white/60 mb-6 font-medium uppercase tracking-widest text-xs">Especificações
+                        obrigatórias:</p>
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Deve ter entre <strong>1 e 64 caracteres</strong>.</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Pode conter apenas caracteres alfanuméricos minúsculos Unicode e hífens
+                                (<code>a-z</code> e <code>-</code>).</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Não deve começar nem terminar com <code>-</code>.</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Não deve conter hífens consecutivos (<code>--</code>).</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Deve corresponder ao <strong>nome do diretório pai</strong>.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-white/5 p-8 rounded-2xl border border-white/10 text-center">
+                    <div class="text-[#FFA203] text-sm font-bold uppercase tracking-widest mb-4">Exemplo Válido</div>
+                    <div class="bg-black/40 p-4 rounded-xl border border-[#FFA203]/20 font-mono text-lg text-white">
+                        pdf-processing
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Exemplos de Nomes -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="terminal" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Exemplos de Nomes</h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <!-- Exemplos Válidos -->
+                <div>
+                    <h4 class="text-[#FFA203] font-bold mb-6 flex items-center gap-2">
+                        <i data-lucide="check" class="w-5 h-5 text-green-500"></i> Exemplos Válidos
+                    </h4>
+                    <div class="space-y-4">
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-green-500/20 font-mono text-sm group hover:border-green-500/40 transition-colors">
+                            <span class="text-blue-400">name:</span> <span class="text-white">pdf-processing</span>
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-green-500/20 font-mono text-sm group hover:border-green-500/40 transition-colors">
+                            <span class="text-blue-400">name:</span> <span class="text-white">data-analysis</span>
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-green-500/20 font-mono text-sm group hover:border-green-500/40 transition-colors">
+                            <span class="text-blue-400">name:</span> <span class="text-white">code-review</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exemplos Inválidos -->
+                <div>
+                    <h4 class="text-red-400 font-bold mb-6 flex items-center gap-2">
+                        <i data-lucide="x" class="w-5 h-5 text-red-500"></i> Exemplos Inválidos
+                    </h4>
+                    <div class="space-y-4">
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-red-500/20 font-mono text-sm group hover:border-red-500/40 transition-colors">
+                            <div class="flex flex-wrap gap-x-2">
+                                <span class="text-blue-400">name:</span> <span
+                                    class="text-white/40 line-through">PDF-Processing</span>
+                            </div>
+                            <span class="text-green-500/60 block text-xs mt-1"># uppercase not allowed</span>
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-red-500/20 font-mono text-sm group hover:border-red-500/40 transition-colors">
+                            <div class="flex flex-wrap gap-x-2">
+                                <span class="text-blue-400">name:</span> <span
+                                    class="text-white/40 line-through">-pdf</span>
+                            </div>
+                            <span class="text-green-500/60 block text-xs mt-1"># cannot start with hyphen</span>
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-red-500/20 font-mono text-sm group hover:border-red-500/40 transition-colors">
+                            <div class="flex flex-wrap gap-x-2">
+                                <span class="text-blue-400">name:</span> <span
+                                    class="text-white/40 line-through">pdf--processing</span>
+                            </div>
+                            <span class="text-green-500/60 block text-xs mt-1"># consecutive hyphens not allowed</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Detalhes do Campo Description -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="file-text" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Regras do Campo: <span
+                        class="text-[#FFA203]">description</span></h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+                <div class="space-y-6">
+                    <p class="text-white/60 mb-6 font-medium uppercase tracking-widest text-xs">Diretrizes de
+                        Preenchimento:</p>
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Deve ter entre <strong>1 e 1024 caracteres</strong>.</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Deve descrever a <strong>função</strong> e <strong>quando usar</strong> a
+                                habilidade.</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="check-circle-2" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Deve incluir <strong>palavras-chave</strong> para ajudar na identificação pelos
+                                agentes.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <div
+                            class="text-[#FFA203] text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <i data-lucide="thumbs-up" class="w-3 h-3 text-green-500"></i> Bom exemplo
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-green-500/20 font-mono text-xs text-white leading-relaxed group hover:border-green-500/40 transition-colors">
+                            <span class="text-blue-400">description:</span> Extracts text and tables from PDF files,
+                            fills PDF forms, and merges multiple PDFs. Use when working with PDF documents...
+                        </div>
+                    </div>
+
+                    <div>
+                        <div
+                            class="text-red-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <i data-lucide="thumbs-down" class="w-3 h-3 text-red-500"></i> Péssimo exemplo
+                        </div>
+                        <div
+                            class="bg-black/30 p-4 rounded-xl border border-red-500/20 font-mono text-xs text-white/40 leading-relaxed group hover:border-red-500/40 transition-colors">
+                            <span class="text-blue-400">description:</span> Helps with PDFs.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Detalhes do Campo Allowed-Tools -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="wrench" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Campo: <span class="text-[#FFA203]">allowed-tools</span></h3>
+            </div>
+
+            <div class="flex items-center gap-3 mb-8">
+                <span
+                    class="text-white/40 text-[10px] font-bold px-3 py-1 border border-white/20 rounded-full uppercase tracking-wider">Opcional</span>
+                <span
+                    class="bg-blue-500/20 text-blue-400 text-[10px] font-bold px-3 py-1 border border-blue-500/30 rounded-full uppercase tracking-wider">Experimental</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div class="space-y-6">
+                    <ul class="space-y-4">
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="info" class="text-[#FFA203] w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span>Uma lista de ferramentas <strong>pré-aprovadas</strong> para execução, separadas por
+                                espaços.</span>
+                        </li>
+                        <li class="flex items-start gap-4 text-white/80">
+                            <i data-lucide="alert-circle" class="text-blue-400 w-5 h-5 shrink-0 mt-0.5"></i>
+                            <span class="text-sm">O suporte para este campo pode variar entre as implementações do
+                                agente.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div>
+                    <div class="text-[#FFA203] text-[10px] font-bold uppercase tracking-widest mb-4">Exemplo de
+                        Configuração</div>
+                    <div
+                        class="bg-black/30 p-6 rounded-xl border border-[#FFA203]/20 font-mono text-sm text-white group hover:border-[#FFA203]/40 transition-colors overflow-x-auto whitespace-nowrap">
+                        <span class="text-blue-400">allowed-tools:</span> Bash(git:*) Bash(jq:*) Read
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Conteúdo Corporal -->
+        <div class="glass-card rounded-2xl p-10 md:p-14 w-full max-w-5xl" data-aos="fade-up">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-[#FFA203]/20 flex items-center justify-center">
+                    <i data-lucide="book-open-text" class="text-[#FFA203] w-6 h-6"></i>
+                </div>
+                <h3 class="text-3xl font-bold text-white">Conteúdo <span class="text-[#FFA203]">Corporal</span></h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+                <div>
+                    <p class="text-white/70 mb-6 leading-relaxed">
+                        O corpo em Markdown após o frontmatter contém as <strong>instruções da habilidade</strong>.
+                        Não há restrições de formatação. Escreva o que for necessário para ajudar os agentes a executar
+                        a tarefa com eficácia.
+                    </p>
+
+                    <div class="bg-[#FFA203]/10 border border-[#FFA203]/30 rounded-xl p-6">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i data-lucide="alert-circle" class="text-[#FFA203] w-5 h-5"></i>
+                            <h4 class="text-[#FFA203] font-bold text-sm uppercase">Nota Técnica</h4>
+                        </div>
+                        <p class="text-xs text-white/50 leading-relaxed">
+                            O agente carregará todo este arquivo assim que decidir ativar uma habilidade.
+                            Considere dividir <code>SKILL.md</code> conteúdos mais longos em arquivos referenciados.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <h4 class="text-white font-bold mb-4 uppercase tracking-widest text-xs">Seções Recomendadas:</h4>
+                    <ul class="space-y-4">
+                        <li
+                            class="flex items-center gap-4 text-white/80 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-[#FFA203]/20 transition-all">
+                            <div class="w-8 h-8 rounded-lg bg-[#FFA203]/20 flex items-center justify-center">
+                                <i data-lucide="list-ordered" class="text-[#FFA203] w-4 h-4"></i>
+                            </div>
+                            <span class="text-sm">Instruções passo a passo</span>
+                        </li>
+                        <li
+                            class="flex items-center gap-4 text-white/80 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-[#FFA203]/20 transition-all">
+                            <div class="w-8 h-8 rounded-lg bg-[#FFA203]/20 flex items-center justify-center">
+                                <i data-lucide="arrow-left-right" class="text-[#FFA203] w-4 h-4"></i>
+                            </div>
+                            <span class="text-sm">Exemplos de entradas e saídas</span>
+                        </li>
+                        <li
+                            class="flex items-center gap-4 text-white/80 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-[#FFA203]/20 transition-all">
+                            <div class="w-8 h-8 rounded-lg bg-[#FFA203]/20 flex items-center justify-center">
+                                <i data-lucide="shield-alert" class="text-[#FFA203] w-4 h-4"></i>
+                            </div>
+                            <span class="text-sm">Casos extremos comuns</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Card: Exemplo Real (Dogfooding) -->
+        <div class="w-full max-w-5xl mx-auto" data-aos="fade-up">
+            <div
+                class="glass-card rounded-2xl p-10 md:p-14 border-2 border-[#FFA203]/50 shadow-[0_0_50px_rgba(255,162,3,0.2)] relative overflow-hidden">
+                <!-- Vídeo de Fundo Exclusivo do Card -->
+                <video autoplay loop muted playsinline
+                    class="absolute inset-0 w-full h-full object-cover z-0 opacity-40">
+                    <source src="press.mp4" type="video/mp4">
+                </video>
+                <!-- Overlay de Contraste -->
+                <div class="absolute inset-0 bg-black/60 z-1"></div>
+
+                <div class="relative z-10">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center gap-4">
+                            <div
+                                class="w-12 h-12 rounded-xl bg-[#FFA203] flex items-center justify-center shadow-[0_0_20px_rgba(255,162,3,0.5)]">
+                                <i data-lucide="zap" class="text-black w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-3xl font-bold text-white">Exemplo Real: <span
+                                        class="text-[#FFA203]">apresentacao-cards</span></h3>
+                                <p class="text-white/50 text-sm">Praticando o que pregamos.</p>
+                            </div>
+                        </div>
+                        <div
+                            class="hidden md:flex items-center gap-2 bg-[#FFA203]/20 px-4 py-2 rounded-full border border-[#FFA203]/30">
+                            <i data-lucide="star" class="text-[#FFA203] w-4 h-4 fill-[#FFA203]"></i>
+                            <span class="text-[#FFA203] text-[10px] font-black uppercase tracking-widest">Engine desta
+                                Apresentação</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <div class="space-y-8">
+                            <p
+                                class="text-white/80 leading-relaxed italic border-l-4 border-[#FFA203] pl-6 py-2 bg-white/5 rounded-r-xl">
+                                "Esta apresentação que você está assistindo foi gerada automaticamente através do design
+                                pattern
+                                Agent Skills, utilizando o skill específico de montagem de slides."
+                            </p>
+
+                            <div class="space-y-4">
+                                <h4 class="text-white font-bold flex items-center gap-2">
+                                    <i data-lucide="folder-git2" class="text-[#FFA203] w-5 h-5"></i> Estrutura do Skill
+                                </h4>
+                                <div
+                                    class="bg-black/40 p-6 rounded-xl border border-white/10 font-mono text-xs text-white/70">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <i data-lucide="folder" class="w-4 h-4 text-[#FFA203]"></i>
+                                        <span>apresentacao-cards/</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 ml-6 mb-1">
+                                        <i data-lucide="file-text" class="w-4 h-4 text-white/40"></i>
+                                        <span>SKILL.md</span>
+                                        <span class="text-[10px] text-[#FFA203]/60 ml-2"># Definição e Lógica</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 ml-6">
+                                        <i data-lucide="folder" class="w-4 h-4 text-white/40"></i>
+                                        <span>templates/</span>
+                                        <span class="text-[10px] text-white/30 ml-2">(13 componentes UI)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <div
+                                class="absolute -top-3 -right-3 bg-blue-500 text-white text-[9px] font-black px-2 py-1 rounded-lg shadow-xl z-20">
+                                YAML CONFIG</div>
+                            <div
+                                class="bg-[#1a1a1a] rounded-2xl p-6 border border-white/10 shadow-2xl overflow-hidden font-mono text-[11px] sm:text-xs text-left">
+                                <div class="flex gap-2 mb-6">
+                                    <div class="w-3 h-3 rounded-full bg-[#ff5f56]"></div>
+                                    <div class="w-3 h-3 rounded-full bg-[#ffbd2e]"></div>
+                                    <div class="w-3 h-3 rounded-full bg-[#27c93f]"></div>
+                                </div>
+                                <pre class="leading-relaxed"><code class="text-blue-400">---</code>
+<code class="text-blue-300">name:</code> <code class="text-[#FFA203]">apresentacao-cards</code>
+<code class="text-blue-300">description:</code> <code class="text-white/70">Motor de montagem atômica para 
+criar apresentações interativas em HTML/Tailwind 
+usando componentes Glassmorphism modulares...</code>
+<code class="text-blue-400">---</code>
+
+<code class="text-white/40"># Skill: Apresentação de Dados em Cards...</code>
+
+<code class="text-blue-300">## 📝 Instruções de Execução</code>
+<code class="text-white/60">Você deve atuar como um engenheiro de front-end...</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card: Documentação Oficial -->
+        <div class="glass-card rounded-2xl p-12 w-full max-w-5xl text-center bg-gradient-to-br from-[#FFA203]/10 to-transparent border border-[#FFA203]/30"
+            data-aos="fade-up" data-aos-delay="200">
+            <div class="flex flex-col md:flex-row items-center gap-12">
+                <!-- Imagem (Mockup do Site) -->
+                <div class="w-full md:w-1/2" data-aos="fade-right" data-aos-delay="400">
+                    <img src="mockup.png" alt="Mockup do site Agent Skills"
+                        class="w-full h-auto drop-shadow-[0_0_35px_rgba(255,162,3,0.4)] hover:scale-105 transition-all duration-700 rounded-lg border border-white/10">
+                </div>
+
+                <!-- Conteúdo -->
+                <div class="w-full md:w-1/2 text-left">
+                    <div class="mb-8">
+                        <span
+                            class="inline-block bg-[#FFA203] text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-[2px] mb-4">Padrão
+                            Aberto</span>
+                        <h3 class="text-3xl md:text-5xl font-black text-white mb-6 leading-tight">Documentação <span
+                                class="text-[#FFA203]">Completa</span></h3>
+                        <p class="text-white/70 mb-8 text-lg italic">Explore o framework definitivo para o
+                            desenvolvimento de agentes autônomos de nova geração.</p>
+
+                        <ul class="space-y-5 mb-10">
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-4 group-hover:bg-[#FFA203]/20 transition-all">
+                                    <i data-lucide="book-open" class="w-4 h-4 text-[#FFA203]"></i>
+                                </div>
+                                <div>
+                                    <span class="text-white font-bold block">Guias Detalhados</span>
+                                    <span class="text-white/50 text-sm italic">Arquitetura, padrões de projeto e
+                                        melhores práticas de UI/UX.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-4 group-hover:bg-[#FFA203]/20 transition-all">
+                                    <i data-lucide="code-2" class="w-4 h-4 text-[#FFA203]"></i>
+                                </div>
+                                <div>
+                                    <span class="text-white font-bold block">Padrão Técnico</span>
+                                    <span class="text-white/50 text-sm italic">Schemas JSON, interfaces e protocolos de
+                                        comunicação universal.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start group">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center mr-4 group-hover:bg-[#FFA203]/20 transition-all">
+                                    <i data-lucide="terminal" class="w-4 h-4 text-[#FFA203]"></i>
+                                </div>
+                                <div>
+                                    <span class="text-white font-bold block">Ecossistema</span>
+                                    <span class="text-white/50 text-sm italic">Comunidade ativa e exemplos reais de
+                                        implementação em escala.</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="flex flex-col gap-4">
+                        <a href="https://agentskills.io/" target="_blank"
+                            class="w-full px-8 py-5 bg-[#FFA203] text-black font-black rounded-xl hover:bg-[#ffb340] transition-all flex items-center justify-center gap-3 transform hover:-translate-y-1 shadow-[0_10px_30px_rgba(255,162,3,0.4)]">
+                            <i data-lucide="external-link" class="w-5 h-5"></i>
+                            VISITAR AGENTSKILLS.IO
+                        </a>
+                        <p class="text-center text-[10px] text-white/30 uppercase tracking-[2px]">Acesso livre para
+                            desenvolvedores</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card Final: Mensagem Personalizada com Animação D3 -->
+        <div class="glass-card rounded-2xl p-12 w-full max-w-5xl text-center relative overflow-hidden bg-gradient-to-br from-[#FFA203]/5 to-transparent border border-[#FFA203]/20"
+            data-aos="zoom-in">
+            <!-- Container para Animação D3 -->
+            <div id="d3-flying-icons" class="absolute inset-0 z-0 pointer-events-none opacity-40"></div>
+            
+            <div class="relative z-10 py-20">
+                <h3 class="text-4xl md:text-6xl font-black leading-tight italic">
+                    Com <span class="text-cyan-400">Agent Skills</span>,<br>
+                    o Leo vai ficar <span class="text-[#FFA203] underline decoration-wavy underline-offset-8">foda</span>.
+                </h3>
+            </div>
+
+            <script>
+                (function() {
+                    const container = d3.select("#d3-flying-icons");
+                    const width = 1200;
+                    const height = 600;
+                    
+                    const svg = container.append("svg")
+                        .attr("width", "100%")
+                        .attr("height", "100%")
+                        .attr("viewBox", `0 0 ${width} ${height}`)
+                        .attr("preserveAspectRatio", "xMidYMid slice");
+
+                    const icons = ["zap", "brain", "cpu", "code", "bot", "sparkles", "terminal", "workflow", "toy-brick", "component"];
+                    const count = 25;
+                    const particles = d3.range(count).map(() => ({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        size: 24 + Math.random() * 32,
+                        icon: icons[Math.floor(Math.random() * icons.length)],
+                        rotation: Math.random() * 360,
+                        vRotation: (Math.random() - 0.5) * 2
+                    }));
+
+                    const gParticles = svg.selectAll(".flying-icon")
+                        .data(particles)
+                        .enter()
+                        .append("g")
+                        .attr("class", "flying-icon")
+                        .style("opacity", 0.4);
+
+                    gParticles.append("i")
+                        .attr("data-lucide", d => d.icon)
+                        .attr("width", d => d.size)
+                        .attr("height", d => d.size)
+                        .attr("stroke", "#22d3ee")
+                        .attr("fill", "none")
+                        .attr("stroke-width", 1.5);
+
+                    function update() {
+                        particles.forEach(p => {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            p.rotation += p.vRotation;
+
+                            if (p.x < -50) p.x = width + 50;
+                            if (p.x > width + 50) p.x = -50;
+                            if (p.y < -50) p.y = height + 50;
+                            if (p.y > height + 50) p.y = -50;
+                        });
+
+                        gParticles.attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotation})`);
+                        requestAnimationFrame(update);
+                    }
+
+                    // Inicializar ícones da Lucide dentro do SVG (necessário para que apareçam)
+                    setTimeout(() => {
+                        lucide.createIcons();
+                        update();
+                    }, 100);
+                })();
+            </script>
+        </div>
+    </main>
+    <footer class="py-12 text-center text-white/60">
+        <p>&copy; 2026 - Canal Sandeco. Fonte: Agents Skills Workspace</p>
+    </footer>
+
+    <script>
+        AOS.init({ duration: 800, once: true, offset: 100 });
+        lucide.createIcons();
+
+        // === Navegação Card-a-Card ===
+        const cardSections = [];
+
+        function buildCardSections() {
+            cardSections.length = 0;
+            const wrappers = document.querySelectorAll('.fullscreen-wrapper');
+            if (wrappers.length > 0) {
+                wrappers.forEach(el => cardSections.push(el));
+            } else {
+                document.querySelectorAll('main > .glass-card, main > div:not(.glass-card)').forEach(el => cardSections.push(el));
+            }
+        }
+
+        function getCurrentSectionIndex() {
+            const scrollTop = window.scrollY + window.innerHeight * 0.3;
+            let idx = -1;
+            for (let i = 0; i < cardSections.length; i++) {
+                if (cardSections[i].offsetTop <= scrollTop) {
+                    idx = i;
+                }
+            }
+            return idx;
+        }
+
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = (scrollTop / docHeight) * 100;
+            document.getElementById('reading-progress').style.width = progress + '%';
+
+            const btn = document.getElementById('next-card');
+            if (scrollTop > 300) {
+                btn.classList.add('visible');
+            } else {
+                btn.classList.remove('visible');
+            }
+
+            const icon = document.getElementById('next-card-icon');
+            const atBottom = (scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 100);
+            if (atBottom) {
+                icon.setAttribute('data-lucide', 'chevron-up');
+            } else {
+                icon.setAttribute('data-lucide', 'chevron-down');
+            }
+            lucide.createIcons();
+        });
+
+        document.getElementById('next-card').addEventListener('click', () => {
+            const atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 100);
+            if (atBottom) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+
+            const idx = getCurrentSectionIndex();
+            const nextIdx = idx + 1;
+            if (nextIdx < cardSections.length) {
+                cardSections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+
+        function animateCounters() {
+            const counters = document.querySelectorAll('.counter');
+            counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                const duration = 2000;
+                const increment = target / (duration / 16);
+                let current = 0;
+                const updateCounter = () => {
+                    current += increment;
+                    if (current < target) {
+                        counter.textContent = Math.ceil(current) + '%';
+                        requestAnimationFrame(updateCounter);
+                    } else { counter.textContent = target + '%'; }
+                };
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => { if (entry.isIntersecting) { updateCounter(); observer.unobserve(entry.target); } });
+                });
+                observer.observe(counter);
+            });
+        }
+
+        function animateProgressBars() {
+            document.querySelectorAll('.progress-bar-fill').forEach(bar => {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            setTimeout(() => { bar.style.width = bar.getAttribute('data-width') + '%'; }, 200);
+                            observer.unobserve(entry.target);
+                        }
+                    });
+                });
+                observer.observe(bar);
+            });
+        }
+
+        function setupFullScreenWrappers() {
+            const main = document.querySelector('main');
+            if (!main) return;
+
+            main.classList.remove('gap-[60vh]', 'py-20');
+            main.style.paddingTop = '';
+
+            const children = Array.from(main.children);
+            children.forEach(child => {
+                if (child.tagName === 'DIV' && !child.classList.contains('fullscreen-wrapper')) {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'min-h-screen w-full flex items-center justify-center fullscreen-wrapper snap-start p-4';
+                    child.parentNode.insertBefore(wrapper, child);
+                    wrapper.appendChild(child);
+                }
+            });
+
+            buildCardSections();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupFullScreenWrappers();
+            setTimeout(animateCounters, 500);
+            setTimeout(animateProgressBars, 600);
+
+            const headerBtn = document.getElementById('header-next-btn');
+            if (headerBtn) {
+                headerBtn.addEventListener('click', () => {
+                    if (cardSections.length > 0) {
+                        cardSections[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                const idx = getCurrentSectionIndex();
+
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
+                    e.preventDefault();
+                    const nextIdx = idx + 1;
+                    if (nextIdx < cardSections.length) {
+                        cardSections[nextIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    const prevIdx = idx - 1;
+                    if (prevIdx >= 0) {
+                        cardSections[prevIdx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else if (idx === 0 || idx === -1) {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }
+            });
+
+            window.addEventListener('resize', setupFullScreenWrappers);
+        });
+    </script>
+</body>
+
+</html>
