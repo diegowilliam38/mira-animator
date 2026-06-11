@@ -3,3 +3,4 @@ node_modules/
 *.log
 .DS_Store
 agents/mira-builder/videos_header/
+decks/**/assets/*.glb
