@@ -53,10 +53,10 @@ body {
     transform: translateY(-3px);
 }
 
-/* Palco de animação D3 */
+/* Palco de animação D3 — tamanho padrão do canvas */
 .anim-stage {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: clamp(400px, 60vh, 620px);
     background: radial-gradient(circle at 50% 50%, var(--mira-stage-glow), transparent 70%);
     border-radius: 8px;
     overflow: hidden;

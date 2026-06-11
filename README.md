@@ -58,6 +58,15 @@ Apoio: `mira-image-prompt` (prompts JSON para foto realista) e `mira-img-animato
 
 O `mira-size-animator` lê o marcador `<!-- @MIRA:SIZE N/10 -->` que o `mira-animator` estampa em cada animação (sempre 3/10 ao gerar) e escala a composição dentro do SVG para preencher mais ou menos o palco, sem alterar a altura do palco nem o loop interno. "Coloca as animações em 6/10" sobe o nível; "esse slide em 2/10" desce.
 
+### Outros formatos de vídeo
+
+A partir do deck 16:9, sem tocar no original:
+
+- `mira-squared` cria `index-1x1.html`, versão quadrada 1080x1080 (feed, LinkedIn).
+- `mira-vertical` cria `index-9x16.html`, versão vertical 1080x1920 (Reels, Shorts, Stories, TikTok).
+
+Cada um fixa os slides na proporção alvo (moldura fixa) e reduz os espaços laterais. Grave com a viewport ajustada à resolução do formato.
+
 ## Templates
 
 Três camadas em `templates/`:

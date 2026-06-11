@@ -46,6 +46,12 @@ Textos visíveis em português brasileiro, acentuação 100% correta, UTF-8 dire
 - Proibido travessão (—) em qualquer texto. Substituir por vírgula, dois-pontos ou reescrever.
 - Proibido `\destaque{}` ou `\textcolor{}` em LaTeX. Aqui é HTML, mas a regra geral é: títulos limpos, ênfase via `<span class="primary-color italic">`.
 
+## REGRA DE TÍTULO
+
+- **Sem ícone no título.** Não coloque `icon-hero` nem qualquer `<i data-lucide>` acima ou ao lado do `<h2>` do slide. O título é só texto (com ênfase via `<span class="primary-color italic">`). Ícones continuam permitidos dentro do card (header da animação, pílulas de atributo), nunca no título.
+- **No máximo 6 palavras no título**, a não ser que o usuário peça explicitamente mais. Se o título natural passar de 6 palavras, encurte mantendo o sentido.
+- **Título colado no topo.** A `<section>` usa `px-6 pt-3 pb-6` e o wrapper do card não leva `pt-10 md:pt-16`. O bloco do título fecha com `mb-2`.
+
 ## Quando o Usuário Aciona a Skill
 
 1. Usuário aciona com `/mira-animator` ou frase equivalente.
@@ -60,13 +66,12 @@ Como um novo card dentro do deck do tema, em `slides/<tema>/index.html`. Se o de
 ## Estrutura Obrigatória do Card
 
 ```html
+<!-- A <section> que envolve o card encosta o título no topo:
+     class="min-h-screen flex flex-col items-center justify-center px-6 pt-3 pb-6" -->
 <!-- Card N: Título descritivo -->
-<div class="w-full max-w-6xl pt-10 md:pt-16" data-aos="fade-up" data-aos-delay="100">
-    <!-- Título do slide -->
-    <div class="text-center mb-3" data-aos="zoom-in">
-        <div class="icon-hero mb-2">
-            <i data-lucide="ICONE-LUCIDE" class="w-7 h-7 primary-color"></i>
-        </div>
+<div class="w-full max-w-6xl" data-aos="fade-up" data-aos-delay="100">
+    <!-- Título do slide: SEM ícone, no máximo 6 palavras -->
+    <div class="text-center mb-2">
         <h2 class="text-4xl md:text-5xl font-bold mb-2">
             Parte fixa <span class="primary-color italic">parte com ênfase</span>
         </h2>
@@ -95,7 +100,7 @@ Como um novo card dentro do deck do tema, em `slides/<tema>/index.html`. Se o de
         <!-- Palco da animação -->
         <!-- @MIRA:SIZE 3/10 -->
         <div class="anim-stage" id="SLUG-stage">
-            <svg id="SLUG-svg" viewBox="0 0 1280 760" preserveAspectRatio="xMidYMid meet"></svg>
+            <svg id="SLUG-svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
 
         <!-- Atributos/pílulas no rodapé -->
@@ -113,12 +118,11 @@ Como um novo card dentro do deck do tema, em `slides/<tema>/index.html`. Se o de
 </div>
 ```
 
-**CSS específico do stage** (adicionar no `<style>` se necessário):
+**CSS específico do stage.** O tamanho padrão do canvas já vem do `.anim-stage` (no `base.css`): `height: clamp(400px, 60vh, 620px)`. Só adicione um override por slide no `<style>` se aquele slide específico precisar de mais ou menos altura:
 
 ```css
 #SLUG-stage {
-    aspect-ratio: auto;
-    height: clamp(540px, 60vh, 700px);
+    height: clamp(400px, 60vh, 620px);
 }
 
 #SLUG-stage + .border-t {
@@ -182,7 +186,7 @@ Se isso não estiver presente, dois climbers correm ao mesmo tempo no Replay, va
 Use quando o conceito tem **estrutura geométrica clara** (hub-spoke, escada, rede, gráfico).
 
 Stack:
-- `<svg viewBox="0 0 1280 760">` dentro do `.anim-stage`
+- `<svg viewBox="0 0 1280 720">` dentro do `.anim-stage`
 - D3 v7+ via CDN (`https://d3js.org/d3.v7.min.js`)
 - Use `d3.easeBackOut.overshoot(1.1)` para entradas com snap
 - Use `d3.easeQuadInOut` para movimentos de partícula
@@ -271,6 +275,10 @@ Loop interno: partícula viajando de A para B em cada linha (com `animation-dela
 
 ## Checklist Antes de Entregar
 
+- [ ] Título sem ícone (nenhum `icon-hero`/`<i>` acima ou ao lado do `<h2>`).
+- [ ] Título com no máximo 6 palavras (salvo pedido explícito do usuário).
+- [ ] Margem do título ao topo enxuta (seção `pt-3 pb-6`, wrapper sem `pt-10`, título `mb-2`).
+- [ ] Canvas no padrão `.anim-stage` (`clamp(400px, 60vh, 620px)`) e `viewBox="0 0 1280 720"`.
 - [ ] Marcador `<!-- @MIRA:SIZE 3/10 -->` na linha acima do `.anim-stage`.
 - [ ] CSS do `#SLUG-stage` adicionado com height clamp.
 - [ ] HTML do card está dentro de `<main>` na posição lógica.

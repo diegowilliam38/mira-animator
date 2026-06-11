@@ -25,7 +25,7 @@ O nível atual de cada animação vive num comentário HTML, colado logo acima d
 ```html
 <!-- @MIRA:SIZE 3/10 -->
 <div class="anim-stage" id="SLUG-stage">
-    <svg id="SLUG-svg" viewBox="0 0 1280 760" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="SLUG-svg" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
 </div>
 ```
 
