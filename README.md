@@ -1,6 +1,6 @@
 # Mira
 
-Slides animados com D3 — mire a atenção onde importa.
+Metáforas Inteligentes Recursivas e Animadas
 
 O Mira é um conjunto de agentes, skills e templates para criar apresentações HTML animadas (D3.js v7 + Tailwind + glassmorphism) a partir do conteúdo dos seus projetos, livros ou PDFs. Ele segue a filosofia do [Reversa](https://github.com/sandeco/reversa): instala-se numa pasta de trabalho isolada e lê conteúdo de fontes vinculadas, sem misturar nada com os projetos de origem.
 
