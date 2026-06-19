@@ -63,6 +63,8 @@ Con el deck montado, puedes moldear el movimiento:
 - **Metáfora** — *"convierte este concepto en una metáfora animada"*. El agente `mira-animated-metaphor` reemplaza la animación de un slide por una analogía concreta de la vida diaria, manteniendo el título y las píldoras.
 - **Visuales** — pide a `mira-visuals` paneles estáticos, diagramas o infografías, o a `mira-chart` gráficos de datos a partir de un CSV/JSON, una imagen, o incluso un boceto a mano.
 - **3D, QR e imágenes:** coloca un elemento 3D real y auto-rotante con `/mira-3d`, un código QR escaneable (a partir de un enlace o texto) con `/mira-qrcode`, o una imagen que ya tienes con `/mira-image`. Un slide 3D que carga un `.glb` necesita un servidor local (el agente arranca uno y escribe un lanzador de doble clic); todo lo demás se abre desde `file://`.
+- **Morph de formas:** haz que una forma SVG se transforme en otra en bucle con `/mira-svg-morph` (pasas los archivos), o `/mira-icon-morph` para hacerlo a partir de conceptos en palabras, con íconos buscados y licenciados en Iconify.
+- **Animar un SVG:** haz que un SVG que provees se mueva (batir, girar, deslizar, pulsar, dibujar) con `/mira-svg-animator`; si es un path único fusionado, separa la parte a animar.
 
 ## 5. Abre y presenta
 

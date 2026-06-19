@@ -51,6 +51,9 @@ These drop a specific element into a slide.
 | **mira-3d** | Adds a true 3D element (real depth, auto-rotation, drag/zoom) in a clean card, choosing CSS 3D, procedural Three.js or a glTF `.glb`. A `.glb` slide needs a local HTTP server (the agent starts one and writes an `abrir-slide.cmd` launcher; needs Node.js); CSS 3D and procedural open from `file://`. |
 | **mira-qrcode** | Inserts a large, centered, scannable QR code from a link or text, generated locally and embedded as inline SVG, so it works from `file://` with no runtime dependency. |
 | **mira-image** | Places an image you already have (local file or URL) into a slide, copied into `assets/` and referenced by a relative path. Clean card, image static with the loop on the frame. Works from `file://` with no server. To generate an image see `mira-visuals`; to animate one see `mira-img-animator`. |
+| **mira-svg-morph** | Generates a slide where one SVG shape morphs into another in a continuous loop (GSAP + MorphSVGPlugin vendored locally). You pass 2+ `.svg` files; 2 go back and forth, N chain. Inlines the paths with unique ids and runs `convertToPath`. Works from `file://`. |
+| **mira-icon-morph** | The same morph from concepts in words: searches the Iconify API, validates the license (MIT/Apache/CC0/CC-BY), records attribution in `CREDITS.md`, and refuses protected IP. Reuses the render core of `mira-svg-morph`. |
+| **mira-svg-animator** | Animates an SVG you provide: flap, spin, slide, pulse, draw the outline or follow a curve (GSAP transform / DrawSVG / MotionPath, vendored). To move a part it must be a separate element; for a single merged path it splits the part (clip by an axis or edit the path) and removes opaque backgrounds. Works from `file://`. |
 
 ## Helper agents
 

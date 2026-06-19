@@ -51,6 +51,9 @@ Estes inserem um elemento específico num slide.
 | **mira-3d** | Adiciona um elemento 3D de verdade (profundidade real, rotação automática, arrastar/zoom) num card limpo, escolhendo CSS 3D, Three.js procedural ou um `.glb` glTF. Um slide com `.glb` precisa de servidor HTTP local (o agente sobe um e gera um launcher `abrir-slide.cmd`; precisa de Node.js); CSS 3D e procedural abrem por `file://`. |
 | **mira-qrcode** | Insere um QR code grande, central e escaneável a partir de um link ou texto, gerado localmente e embutido como SVG inline, então funciona por `file://` sem dependência de runtime. |
 | **mira-image** | Coloca uma imagem que você já tem (arquivo local ou URL) num slide, copiada para `assets/` e referenciada por caminho relativo. Card limpo, imagem estática com o loop na moldura. Funciona por `file://` sem servidor. Para gerar uma imagem veja `mira-visuals`; para animar uma veja `mira-img-animator`. |
+| **mira-svg-morph** | Gera um slide onde uma forma SVG morfa em outra em loop contínuo (GSAP + MorphSVGPlugin vendorados localmente). Você passa 2+ arquivos `.svg`; 2 vão e voltam, N encadeiam. Cola os paths inline com ids únicos e roda `convertToPath`. Funciona por `file://`. |
+| **mira-icon-morph** | O mesmo morph a partir de conceitos em palavras: busca na API do Iconify, valida a licença (MIT/Apache/CC0/CC-BY), registra atribuição no `CREDITS.md` e recusa IP protegida. Reaproveita o núcleo de render do `mira-svg-morph`. |
+| **mira-svg-animator** | Anima um SVG que você fornece: bater, girar, deslizar, pulsar, desenhar o contorno ou percorrer uma curva (GSAP transform / DrawSVG / MotionPath, vendorado). Para mover uma parte ela precisa ser um elemento separado; num path único fundido, a skill separa a parte (corte por eixo ou edição do path) e remove fundos opacos. Funciona por `file://`. |
 
 ## Agentes de apoio
 
