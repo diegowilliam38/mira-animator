@@ -31,8 +31,32 @@ Não use sempre o mesmo formato. **Varie a metáfora visual** conforme o conceit
 - Conceito de revelação, flip cards 3D
 - Conceito de orquestração, pontos pulsando em uníssono
 - Conceito de fluxo, partículas viajando entre nós
+- Conceito com objeto concreto, o ícone real do objeto como ator (não um círculo que o representa)
 
 Não caia em "8 cards retangulares enfileirados". O usuário já reclamou disso antes. Cada slide é uma micro-narrativa visual.
+
+## REGRA DE VOCABULÁRIO VISUAL, ÍCONE REAL EM VEZ DE CÍRCULO
+
+O círculo (dot, partícula, satélite, anel, pulso radial) virou muleta. Ele é legítimo só para conceitos **genuinamente abstratos**: fluxo, energia, sinal, conexão, pulso, propagação. Para o resto, ele empobrece a cena.
+
+**Quando o conceito tem um referente concreto, o ator da animação é um ícone reconhecível, não um círculo.** Se dá para nomear o objeto (livro, cérebro, engrenagem, foguete, banco de dados, chave, escudo, moeda, nuvem, robô, funil, alvo, bússola), anime o objeto, não uma bolinha que o representa.
+
+**Estilo flat, não outline.** "Flat" aqui é o estilo, não um site: silhueta cheia (preenchida), cantos suaves, formas sólidas, pouco detalhe, leitura instantânea à distância e na projeção. É o oposto do traço fino vazado do Lucide, que continua só na moldura do card (header, pílulas). Um ícone flat lê como objeto; um outline fininho some no palco.
+
+Como fazer, sem quebrar nada:
+
+1. **Traga o ícone como `<path>` inline** no mesmo `<svg>` da animação. A regra "dentro do SVG, desenhe com path/rect/line" continua valendo; o path agora vem de um ícone real em vez de um círculo desenhado à mão.
+2. **O ícone é o ator do loop interno** (Regra Zero intacta): ele orbita, viaja pela linha, pulsa, se desenha via `stroke-dashoffset`, entra em cascata. Ícone parado no centro é proibido igual a qualquer animação estática.
+3. **Cor segue a paleta do deck, o preenchimento flat permanece.** No deck card laranja/preto, recolore o ícone para laranja e neutros mantendo-o cheio; no template de animação pura (multicor), a cor cheia do ícone é bem-vinda. Nunca introduza cor fora do tema num deck card. O tamanho segue a composição.
+
+Fonte e licença, mesmo rigor do `mira-icon-morph`:
+
+- Puxe ícones planos de **fontes abertas**, só licenças **MIT, Apache-2.0, CC0 ou CC-BY**. Duas fontes de primeira linha: **Google Material Symbols/Icons** (fonts.google.com/icons, Apache-2.0, com eixo *fill* para a versão preenchida, que é a cara do flat) e a **API do Iconify** (agrega Material, MDI e centenas de sets flat). Prefira ícone de path único, viewBox `0 0 24 24` (anima limpo).
+- **Embuta inline**; o deck continua offline, por `file://`. A internet é usada só na geração.
+- Se a licença pedir, **registre a atribuição no `CREDITS.md`** do deck. Recuse IP protegida (personagem de franquia) e sugira arte original.
+- Slide inteiro feito de morph de ícones já é o `/mira-icon-morph`; aqui o ícone entra como mais um elemento da cena.
+
+Círculo continua ótimo para o abstrato. A regra é simples: **não desenhe uma bolinha quando existe um objeto óbvio para desenhar.**
 
 ## REGRA DE IDIOMA
 
@@ -252,9 +276,9 @@ Loop interno: partícula viajando de A para B em cada linha (com `animation-dela
 ## Ícones
 
 - Lucide via CDN (`https://unpkg.com/lucide@latest`), `<i data-lucide="ICONE">`
-- Sempre estilo outline/line (vazado), nunca filled
+- Na moldura do card (header, pílulas), Lucide sempre outline/line (vazado), nunca filled. O ícone-ator DENTRO da animação é o oposto: flat preenchido (ver REGRA DE VOCABULÁRIO VISUAL)
 - Tamanhos: `w-4 h-4` (pequeno), `w-7 h-7` (médio), `w-12 h-12` (grande)
-- Para ícones DENTRO de SVG D3, desenhar com `<path>`, `<rect>`, `<line>` (não usar `<i>` em SVG)
+- Dentro do SVG da animação, não use `<i data-lucide>`: inline o `<path>` do ícone. Para um objeto concreto, traga um ícone flat real como ator; `<circle>`, `<rect>`, `<line>` desenhados à mão só para formas abstratas
 
 ## Workflow de Execução
 
@@ -276,6 +300,7 @@ Loop interno: partícula viajando de A para B em cada linha (com `animation-dela
 
 - ❌ Fade-up + parou. Sem loop interno.
 - ❌ Pulse genérico em todos os elementos ao mesmo tempo (sem hierarquia visual).
+- ❌ Desenhar um círculo/dot genérico quando o conceito tem um objeto concreto óbvio. Use um ícone flat real como ator.
 - ❌ Animação durando 200ms sem easing customizado (parece bug, não criativo).
 - ❌ Cor diferente do tema laranja/preto. Não tem azul, verde, rosa neste livro.
 - ❌ Texto com travessão (—).
@@ -301,6 +326,7 @@ Loop interno: partícula viajando de A para B em cada linha (com `animation-dela
 - [ ] Acentuação UTF-8 direta, sem entidades HTML.
 - [ ] Pelo menos um elemento sempre em movimento depois da entrada.
 - [ ] Metáfora visual diferente das já usadas no mesmo capítulo.
+- [ ] Conceito com referente concreto usa um ícone flat reconhecível como ator, não um círculo genérico; atribuição no CREDITS.md se a licença exigir.
 
 ## Referência de Padrões
 
