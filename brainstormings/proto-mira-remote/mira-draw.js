@@ -77,7 +77,7 @@
             'display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:10px;border-radius:18px;',
             'background:rgba(16,16,16,.92);backdrop-filter:blur(14px);border:1px solid rgba(255,144,77,.35);',
             'box-shadow:0 18px 50px rgba(0,0,0,.5);opacity:0;transition:transform .28s ease,opacity .28s ease;',
-            'font-family:Inter,system-ui,sans-serif}',
+            'font-family:Inter,system-ui,sans-serif;max-height:92vh;overflow-y:auto}',
             'body.md-on #md-bar{transform:translate(0,-50%);opacity:1}',
             '.md-tool{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;',
             'border-radius:12px;border:none;cursor:pointer;color:#fff;background:rgba(255,255,255,.06);',
@@ -108,7 +108,17 @@
             'border:1px solid rgba(255,144,77,.35);color:rgba(255,255,255,.85);',
             'font:600 12px/1 Inter,system-ui,sans-serif}',
             'body.md-on #md-hint{display:flex}',
-            '#md-hint b{color:' + ACCENT + '}'
+            '#md-hint b{color:' + ACCENT + '}',
+            /* tela baixa (celular deitado): barra horizontal no rodapé, botões menores */
+            '@media (max-height:520px){',
+            '#md-bar{left:50%;top:auto;bottom:12px;transform:translate(-50%,160%);',
+            'flex-direction:row;align-items:center;gap:4px;padding:8px;max-width:96vw;',
+            'max-height:none;overflow-y:visible;overflow-x:auto}',
+            'body.md-on #md-bar{transform:translate(-50%,0)}',
+            '.md-tool{width:36px;height:36px;flex:none}',
+            '.md-sep{width:1px;height:26px;margin:0 4px;align-self:center}',
+            '#md-hint{display:none!important}',
+            '}'
         ].join('');
         var el = document.createElement('style');
         el.id = 'mira-draw-style';

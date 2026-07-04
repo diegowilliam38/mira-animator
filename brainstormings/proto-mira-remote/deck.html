@@ -177,6 +177,7 @@ es.onmessage = (ev) => {
   document.getElementById('clients').textContent =
     `${st.clients} aparelho${st.clients === 1 ? '' : 's'}`;
   commit({ slide: st.slide, reveal: st.reveal }, { push: false });
+  if (st.draw && window.applyRemoteDraw) window.applyRemoteDraw(st.draw);
 };
 
 // ── Escala do palco: 1280x720 encolhe/cresce para caber na tela ────────────
@@ -215,3 +216,42 @@ addEventListener('keydown', (e) => {
 render();
 </script>
 <script src="/mira-draw.js"></script>
+<script>
+// ── Sincroniza os traços do telestrator pelo mesmo canal ───────────────────
+// Os traços viajam em coordenadas do PALCO (1280x720); cada aparelho converte
+// de/para pixels da própria tela, então o desenho cai no mesmo lugar do slide.
+(() => {
+  const xf = () => {
+    const s = Math.min(innerWidth / 1280, innerHeight / 720);
+    return { s, ox: (innerWidth - 1280 * s) / 2, oy: (innerHeight - 720 * s) / 2 };
+  };
+  const conv = (sh, dir) => {
+    const { s, ox, oy } = xf();
+    const pt = dir === 'up'
+      ? (x, y) => [(x - ox) / s, (y - oy) / s]   // tela -> palco
+      : (x, y) => [x * s + ox, y * s + oy];      // palco -> tela
+    const k = dir === 'up' ? 1 / s : s;
+    const c = { ...sh };
+    if (c.points) c.points = c.points.map(p => { const [x, y] = pt(p.x, p.y); return { x, y }; });
+    if (c.x0 != null) { [c.x0, c.y0] = pt(sh.x0, sh.y0); [c.x1, c.y1] = pt(sh.x1, sh.y1); }
+    if (c.x != null) [c.x, c.y] = pt(sh.x, sh.y);
+    if (c.width != null) c.width = sh.width * k;
+    if (c.size != null) c.size = sh.size * k;
+    return c;
+  };
+  let lastDraw = []; // último estado em coordenadas do palco
+  miraDraw.onchange = (shapes) => {
+    lastDraw = shapes.map(s => conv(s, 'up'));
+    fetch('/draw', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastDraw),
+    });
+  };
+  window.applyRemoteDraw = (draw) => {
+    lastDraw = draw;
+    miraDraw.setShapes(draw.map(s => conv(s, 'down')));
+  };
+  // ao redimensionar/girar, reposiciona os traços no novo tamanho de tela
+  addEventListener('resize', () => miraDraw.setShapes(lastDraw.map(s => conv(s, 'down'))));
+})();
+</script>

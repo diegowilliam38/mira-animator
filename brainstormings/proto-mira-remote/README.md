@@ -22,13 +22,16 @@ Avance no celular e veja a tela do PC avançar junto — e vice-versa.
 
 - `GET /` serve o deck (mesmo HTML pra todos → resolve "de onde o celular tira o slide").
 - `GET /events` é o push servidor→cliente (Server-Sent Events); quem entra já
-  recebe o estado atual (**join-state**).
+  recebe o estado atual (**join-state**), incluindo os desenhos.
 - `POST /state` é a subida cliente→servidor; o servidor guarda e reemite pra todos.
+- `POST /draw` sincroniza os traços do telestrator (mira-draw, tecla P ou botão ✎).
+  Os traços viajam em coordenadas do palco 16:9 (1280×720), então caem no mesmo
+  lugar do slide em qualquer tamanho de tela.
 
 Estado trafegado: só `{ slide, reveal }`. A animação (Regra Zero) roda local em
 cada tela — sincronizamos o slide, não os quadros.
 
 ## O que isto NÃO é (ainda)
 
-- Sem lock de controle (qualquer um mexe), sem QR, sem presenter view/notas.
+- Sem lock de controle (qualquer um mexe/desenha), sem QR, sem presenter view/notas.
 - Escolhemos SSE por simplicidade; a versão real pode usar WebSocket.
