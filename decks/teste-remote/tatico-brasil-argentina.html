@@ -100,13 +100,13 @@
 var TACTICS = {
   sport: 'futebol',
   orientation: 'horizontal',      // 'horizontal' | 'vertical'
-  eyebrow: '',                    // vazio = sem linha de cima; preencha só se o usuário pedir
-  title: 'Brasil x Noruega',      // exibido em CAIXA ALTA, centralizado no topo
+  eyebrow: '',
+  title: 'Brasil x Argentina',
   teams: [
     {
       name: 'Brasil', color: '#FFDF00', goalie: '#4B4E52',
       formation: '4-3-3', side: 'left',
-      players: [                              // ordem da formação, da ESQUERDA p/ a DIREITA
+      players: [                              // XI que comecou Brasil 2x1 Japao (29/06/2026, 16 avos)
         { num:'1',  name:'Alisson', gk:true },
         { num:'16', name:'Douglas Santos' },    // lateral esquerdo
         { num:'3',  name:'Gabriel Magalhães' }, // zagueiro (esq)
@@ -117,24 +117,24 @@ var TACTICS = {
         { num:'20', name:'Paquetá' },           // meia
         { num:'7',  name:'Vinicius Jr.' },      // ponta ESQUERDA
         { num:'9',  name:'Cunha' },             // centroavante
-        { num:'26', name:'Rayan' }              // ponta DIREITA
+        { num:'26', name:'Rayan' }              // ponta direita
       ]
     },
     {
-      name: 'Noruega', color: '#C8102E', goalie: '#ECECEC',
-      formation: '4-3-3', side: 'right',
-      players: [                              // ordem da formação, da ESQUERDA p/ a DIREITA
-        { num:'1',  name:'Nyland', gk:true },
-        { num:'5',  name:'Møller Wolfe' },      // lateral esquerdo
-        { num:'3',  name:'Ajer' },              // zagueiro (esq)
-        { num:'17', name:'Heggem' },            // zagueiro (dir)
-        { num:'2',  name:'Holmgren Pedersen' }, // lateral direito (nº não confirmado)
-        { num:'15', name:'Patrick Berg' },      // meio (nº não confirmado)
-        { num:'8',  name:'Berge' },             // volante
-        { num:'10', name:'Ødegaard' },          // meia (capitão)
-        { num:'20', name:'Nusa' },              // ponta esquerda (lado a confirmar)
-        { num:'9',  name:'Haaland' },           // centroavante
-        { num:'7',  name:'Sørloth' }            // ponta direita (lado a confirmar)
+      name: 'Argentina', color: '#75AADB', goalie: '#7CB342',
+      formation: '4-4-2', side: 'right',
+      players: [                              // XI que comecou Argentina x Cabo Verde (03/07/2026, 16 avos)
+        { num:'23', name:'Dibu Martínez', gk:true },
+        { num:'25', name:'Medina' },            // lateral esquerdo
+        { num:'6',  name:'Lisandro Martínez' }, // zagueiro (esq)
+        { num:'13', name:'Romero' },            // zagueiro (dir)
+        { num:'26', name:'Molina' },            // lateral direito
+        { num:'16', name:'Almada' },            // meia (esq, lado a confirmar)
+        { num:'20', name:'Mac Allister' },      // meio
+        { num:'24', name:'Enzo Fernández' },    // meio
+        { num:'7',  name:'De Paul' },           // meia (dir)
+        { num:'10', name:'Messi' },             // atacante
+        { num:'22', name:'Lautaro Martínez' }   // atacante
       ]
     }
   ],

@@ -180,11 +180,14 @@ propaga mudança de slide/estado e recebe comandos.
 
 ## Próximos passos
 
-- [ ] Rodar o protótipo **fora do container** (numa máquina real) e testar PC +
-      celular na mesma Wi-Fi de verdade — dentro do container a porta não
-      encaminha para o navegador do host.
-- [ ] Adicionar **lock de controle** ao protótipo (primeiro conectado controla).
-- [ ] Adicionar **QR** apontando para o IP da LAN.
+- [x] Rodar o protótipo **fora do container** e testar PC + celular na mesma
+      rede de verdade (2026-07-04, no hotspot do celular: funcionou; exigiu
+      liberar a porta no firewall do Windows, rede veio como "Pública").
+- [x] Espelho com **palco 16:9 fixo escalado** (mesma geometria em toda tela),
+      fullscreen + paisagem no celular, telestrator embutido com **desenho
+      sincronizado** em coordenadas do palco (branch `mira-remote`).
+- [ ] Implementar o fluxo de ativação da rodada 2: atalho de duplo clique +
+      QR automático + lock do primeiro IP externo.
 - [ ] Prototipar **presenter view texto** (título atual/próximo + notas + timer).
 
 ## Forma candidata da skill
@@ -218,7 +221,68 @@ propaga mudança de slide/estado e recebe comandos.
 - `BRAINSTORM_MIRA_INTERATIVIDADE.md`, item 8 ("Controle pelo celular"): este
   documento é o aprofundamento daquela ideia.
 
+## Rodada 2 (2026-07-04): ativação do servidor
+
+> O usuário do Mira é leigo. Ligar o espelhamento precisa ser tão simples
+> quanto "duplo clique, aponta a câmera". Esta rodada define o gesto de
+> ativação para a **combinação primal**: um notebook apresentando + um
+> celular. Plateia e múltiplos aparelhos ficam para depois.
+
+### Fluxo decidido
+
+1. **Atalho de duplo clique** gravado na pasta do deck pelo `/mira-remote`
+   (nome amigável, ex.: "Apresentar com celular", nunca `server.cjs`).
+   Ele sobe o servidor e abre o deck no navegador do PC já via `http://`.
+   Precisa ser um arquivo executável: navegador em `file://` não consegue
+   subir servidor.
+2. **QR aparece sozinho** num canto do deck enquanto ninguém entrou,
+   apontando para o IP da LAN. Sem tecla, sem configuração.
+3. **Celular escaneia e entra**: o QR some sozinho e as opções de
+   espelho/controle aparecem no celular. O professor não escolhe nada no PC;
+   quem entra decide o que quer ser.
+4. **Sem o atalho**, o deck abre em `file://` normal: sem QR, sem servidor,
+   apresentável 100% pelo teclado. Degradação intacta.
+
+### Identificação dos papéis (sem login, sem pareamento)
+
+O servidor enxerga o IP de cada conexão:
+
+- `127.0.0.1` (localhost) = o notebook, a tela do professor. Inconfundível.
+- Primeiro IP externo da LAN = o celular do professor.
+
+Disso saem duas decisões de graça:
+
+- **Lock de controle natural (v1)**: o servidor só aceita comandos do
+  primeiro IP externo. Segundo aparelho vê espelho, mas não controla.
+- **Limite honesto**: IP identifica o aparelho, não a pessoa. Vira problema
+  só quando abrir para plateia; aí entra ID de sessão/token no QR.
+
+### Pontos de atenção
+
+- **Firewall do Windows**: no primeiro uso pergunta se deixa o Node receber
+  conexão (esbarramos nisso no teste real, rede de hotspot vem como
+  "Pública" e bloqueia silenciosamente). O atalho deve avisar "clique em
+  Permitir", ou o instalador cria a regra.
+- User-Agent mobile pode reforçar a identificação do celular, mas o IP
+  sozinho já resolve o caso primal.
+
+### Decisões desta rodada
+
+1. Gesto de ativação: atalho de duplo clique na pasta do deck (não comando
+   de terminal, não tecla dentro do deck).
+2. QR automático até a primeira conexão externa; depois some. Reabrir fica
+   acessível por tecla/botão para quem entrar no meio.
+3. localhost = palco; primeiro IP externo = controle exclusivo (lock v1).
+4. Escopo: combinação primal (notebook + 1 celular). Plateia depois.
+
+### Decisão pendente
+
+- **DECISÃO PENDENTE, casa do servidor.** O canal vira evolução do
+  `mira-serve.js` que já existe (um servidor só para autoria e apresentação)
+  ou processo próprio do remote? Sugestão da mesa: evoluir o `mira-serve.js`.
+
 ## Status
 
-Convergido como direção inicial. Pronto para virar spec de implementação.
+Convergido como direção inicial; rodada 2 (ativação) convergida para a
+combinação primal. Pronto para virar spec de implementação.
 Última atualização: 2026-07-04.

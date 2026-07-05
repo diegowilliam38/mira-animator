@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metáforas — MIRA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <script type="importmap">
+    { "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    } }
+    </script>
+    <style>
+        html, body { overflow-x: hidden; }
+        body { background: #000; min-height: 100vh; color: #fff; font-family: 'Inter', sans-serif; }
+
+        /* vídeo de fundo da capa/header */
+        .header-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; }
+        .header-bg-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(0,0,0,.6); }
+
+        /* vídeo de fundo de slide (mesma receita do cap07): o vídeo cobre o wrapper full-screen inteiro */
+        /* full-bleed: o wrapper do vídeo escapa do container e ocupa 100% da largura da tela */
+        .fullscreen-wrapper.slide-video-wrapper { position: relative; overflow: hidden; width: 100vw; margin-left: calc(50% - 50vw); }
+        .slide-bg-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; }
+        .slide-bg-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(0,0,0,.5); }
+        #slide-metaforas-animadas { position: relative; z-index: 2; }
+
+        .glass-card {
+            background: rgba(255,255,255,.05); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,.1); box-shadow: 0 10px 30px rgba(255,144,77,.15);
+            transition: all .3s ease;
+        }
+        .glass-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(255,144,77,.25); }
+        .primary-color { color: #FF904D; }
+
+        .anim-stage { width: 100%; height: clamp(380px, 56vh, 560px); }
+        .anim-stage svg { width: 100%; height: 100%; display: block; }
+        #cerebro-stage { position: relative; }
+        #cerebro-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+        .replay-btn {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+            color: #FF904D; background: rgba(255,144,77,.1); border: 1px solid rgba(255,144,77,.25);
+            padding: 6px 12px; border-radius: 8px; cursor: pointer; transition: all .2s ease;
+        }
+        .replay-btn:hover { background: rgba(255,144,77,.2); }
+        .attribute-pill { background: rgba(255,144,77,.08); border: 1px solid rgba(255,144,77,.15); }
+
+        @keyframes breathe { 0%,100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.35); opacity: 1; } }
+        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+        @keyframes scroll-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+
+        .spark {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, #FF904D 60%, transparent 100%);
+            box-shadow: 0 0 30px 8px rgba(255,144,77,.7); animation: breathe 2.4s ease-in-out infinite;
+        }
+
+        #reading-progress {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, #FF904D, #ff9f7d, #FF904D); background-size: 200% 100%;
+            animation: shimmer 2s linear infinite; z-index: 9999; transition: width .1s linear;
+            box-shadow: 0 0 10px rgba(255,144,77,.4);
+        }
+        #next-card {
+            position: fixed; bottom: 32px; right: 32px; width: 48px; height: 48px; border-radius: 50%;
+            background: rgba(255,144,77,.9); color: #000; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transform: translateY(20px); transition: all .3s ease; z-index: 9998; border: none;
+        }
+        #next-card.visible { opacity: 1; transform: translateY(0); }
+    </style>
+
+    <style id="mira-formato-9x16">
+        /* Versao vertical 9:16 generalista para a tela (coluna = largura/3 por altura cheia).
+           Numa tela 1080p isso da 640x1080; escala em qualquer resolucao.
+           Cada slide de conteudo = somente o titulo no topo + a animacao no canvas alto (128/203). */
+        :root { --fmt-w: calc(100vw / 3); --fmt-h: 100vh; }
+        html { background: #333333; }
+        body { background: #333333 !important; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+
+        /* capa, miolo e rodape viram a coluna central; o #333 aparece nas laterais */
+        body > header { width: var(--fmt-w) !important; min-height: var(--fmt-h) !important; height: var(--fmt-h) !important; overflow: hidden; }
+        body > main { width: var(--fmt-w) !important; max-width: var(--fmt-w) !important; padding: 0 !important; margin: 0 !important; }
+        body > footer { width: var(--fmt-w) !important; background: #000 !important; }
+        body .max-w-6xl, body .max-w-5xl, body .max-w-4xl, body .max-w-3xl { max-width: 100% !important; }
+
+        /* cada slide de conteudo (envolto pelo JS em .fullscreen-wrapper) vira um quadro 9:16 */
+        .fullscreen-wrapper { width: 100% !important; min-height: var(--fmt-h) !important; height: var(--fmt-h) !important; overflow: hidden !important; background: #000 !important; padding: 2.2vh 6px 1.4vh 6px !important; }
+        .fullscreen-wrapper.slide-video-wrapper { width: 100% !important; margin-left: 0 !important; }
+        .fullscreen-wrapper:has(.glass-card) { flex-direction: column !important; justify-content: flex-start !important; }
+
+        /* canvas alto padrao (so nos slides de conteudo) */
+        .glass-card .anim-stage { height: auto !important; aspect-ratio: 128 / 203 !important; }
+
+        /* composicao enxuta: titulo proeminente no topo, sem subtitulo / header do card / pilulas */
+        .fullscreen-wrapper h2 { font-size: clamp(35px, 5.6vh, 52px) !important; line-height: 1.1 !important; margin-bottom: 0 !important; }
+        .fullscreen-wrapper:has(.glass-card) .text-center > p { display: none !important; }
+        .fullscreen-wrapper:has(.glass-card) .text-center { margin-bottom: 10px !important; padding: 0 14px !important; }
+        .glass-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; padding: 0 !important; }
+        .glass-card:hover { transform: none !important; box-shadow: none !important; }
+        .glass-card > div.justify-between.mb-2.px-1 { display: none !important; }   /* header do card (icone/label/Replay) */
+        .glass-card > div.border-t { display: none !important; }           /* base (legenda + pilulas) */
+    </style>
+</head>
+
+<body class="font-sans">
+
+    <div id="reading-progress" style="width: 0%;"></div>
+    <button id="next-card" aria-label="Próximo card"><i data-lucide="chevron-down" class="w-6 h-6"></i></button>
+
+    <!-- ===================== CAPA / SLIDE 1: METÁFORAS ===================== -->
+    <header class="min-h-screen flex items-center justify-center relative overflow-hidden">
+        <video class="header-bg-video" autoplay muted loop playsinline preload="auto">
+            <source src="assets/videos/01.mp4" type="video/mp4">
+        </video>
+        <div class="header-bg-overlay"></div>
+        <div class="absolute inset-0 pointer-events-none"
+            style="z-index: 2; background-image: radial-gradient(circle at 50% 42%, rgba(255,144,77,.16) 0%, transparent 58%);"></div>
+        <div class="text-center relative z-10 px-6 w-full max-w-5xl" data-aos="fade-down">
+            <div class="flex justify-center mb-8"><div class="spark"></div></div>
+            <h1 class="text-7xl md:text-8xl font-black tracking-tight mb-4">METÁFORAS</h1>
+            <p class="text-2xl md:text-3xl text-white/70 font-light italic mb-8">Metáforas são poderosas.</p>
+            <!-- @MIRA:SIZE 3/10 -->
+            <div class="anim-stage" id="ponte-stage" style="height: clamp(286px, 41.6vh, 416px);">
+                <svg id="ponte-svg" viewBox="0 0 1280 480" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <div data-aos="fade-up" data-aos-delay="400" class="mt-6">
+                <img src="logo.png" alt="Canal Sandeco" class="h-7 mx-auto opacity-60 hover:opacity-100 transition-opacity">
+            </div>
+        </div>
+        <button class="absolute bottom-8 right-8 flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none group"
+            id="header-next-btn" aria-label="Iniciar" style="animation: scroll-bounce 2s ease-in-out infinite;">
+            <span class="text-[10px] uppercase tracking-[4px] text-white/30 font-medium group-hover:text-[#FF904D] transition-colors">Iniciar</span>
+            <div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-[#FF904D]/20 transition-all">
+                <i data-lucide="chevron-down" class="w-5 h-5 text-white/40 group-hover:text-[#FF904D] transition-colors"></i>
+            </div>
+        </button>
+    </header>
+
+    <main class="container mx-auto px-4 py-20 flex flex-col items-center gap-[60vh]">
+
+        <!-- ===================== SLIDE 2: MIL PALAVRAS -> MIL IMAGENS (CICLO DA ÁGUA) ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Mil palavras, <span class="primary-color italic">mil imagens</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">O ciclo da água: o diagrama de escola que só faz sentido girando.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="cloud-rain" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">Do diagrama parado ao ciclo vivo</p><p class="text-white/50 text-xs italic">Evapora, condensa, chove, volta ao mar.</p></div>
+                    </div>
+                    <button id="replay-agua" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 4/10 -->
+                <div class="anim-stage" id="agua-stage"><svg id="agua-svg" viewBox="0 0 1280 2030" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 2B: DNA ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Parada parece plana. <span class="primary-color italic">Girando, ganha profundidade</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">A hélice de DNA: a escada torcida que vira fita 3D viva.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="dna" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">Do plano à profundidade</p><p class="text-white/50 text-xs italic">A escada torcida que ganha 3D.</p></div>
+                    </div>
+                    <button id="replay-dna" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 4/10 -->
+                <div class="anim-stage" id="dna-stage"><svg id="dna-svg" viewBox="0 0 1280 2030" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 3: NASCE O MIRA ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">É aí que nasce o <span class="primary-color italic">MIRA</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">Tudo converge num só ponto, e acende.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="sparkles" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">Convergência</p><p class="text-white/50 text-xs italic">As faíscas viram um nome.</p></div>
+                    </div>
+                    <button id="replay-nasce" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 3/10 -->
+                <div class="anim-stage" id="nasce-stage"><svg id="nasce-svg" viewBox="0 -670 1280 2030" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 4: M — METÁFORAS ANIMADAS ===================== -->
+        <div id="slide-metaforas-animadas" class="w-full max-w-6xl" data-bg-video="assets/videos/02.mp4" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Metáforas <span class="primary-color italic">Animadas</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">O conceito vira imagem, a imagem se move, a ideia ganha poder.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="brain-cog" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">As engrenagens do pensamento</p><p class="text-white/50 text-xs italic">Não é decoração. É entendimento.</p></div>
+                    </div>
+                    <button id="replay-ideia" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 3/10 -->
+                <div class="anim-stage" id="ideia-stage"><svg id="ideia-svg" viewBox="0 0 1280 2030" preserveAspectRatio="xMidYMid meet"></svg></div>
+                <div class="border-t border-white/10 pt-1 mt-1 mb-1">
+                    <p class="text-xs uppercase tracking-[3px] text-white/40 text-center mb-1">Metáfora que ensina</p>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="eye" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">Vira imagem</p></div>
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="activity" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">Ganha movimento</p></div>
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="heart" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">A ideia vive</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 5: I — INTELIGENTE (CÉREBRO 3D) ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Inteligência em <span class="primary-color italic">qualquer lugar</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">Inteligente: vive em qualquer agent harness, onde sua IA já trabalha.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="brain" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">Um cérebro, todos os encaixes</p><p class="text-white/50 text-xs italic">Plugа em qualquer ferramenta, sem atrito.</p></div>
+                    </div>
+                    <span class="text-white/30 text-[11px] italic">arraste para girar</span>
+                </div>
+                <!-- @MIRA:SIZE 3/10 -->
+                <div class="anim-stage" id="cerebro-stage"><div id="cerebro-canvas"></div></div>
+                <div class="border-t border-white/10 pt-1 mt-1 mb-1">
+                    <div class="grid grid-cols-3 gap-2">
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="plug" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">Qualquer harness</p></div>
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="unlock" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">Sem amarras</p></div>
+                        <div class="attribute-pill text-center p-2 rounded-xl"><i data-lucide="zap" class="w-4 h-4 primary-color mx-auto mb-1"></i><p class="text-sm font-semibold">Sem atrito</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 6: R — RESPONSIVO ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Uma ideia, <span class="primary-color italic">todos os formatos</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">Responsivo: criou a animação uma vez, ela cabe em todo formato.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="layout-grid" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">A mesma metáfora, em todo lugar</p><p class="text-white/50 text-xs italic">Criou uma vez, o MIRA leva pra todo formato.</p></div>
+                    </div>
+                    <button id="replay-formatos" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 3/10 -->
+                <div class="anim-stage" id="formatos-stage"><svg id="formatos-svg" viewBox="0 0 1280 2030" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 7: ISSO É MIRA ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">Isso é <span class="primary-color italic">MIRA</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">Metáforas que ensinam. Inteligência que se adapta. Responsivo que se molda. Animação que viaja.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="orbit" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">Quatro pilares, um só sistema</p><p class="text-white/50 text-xs italic">Os pilares do MIRA orbitando o centro.</p></div>
+                    </div>
+                    <button id="replay-pilares" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 5/10 -->
+                <div class="anim-stage" id="pilares-stage"><svg id="pilares-svg" viewBox="140 -453 1000 1586" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+        </div>
+
+        <!-- ===================== SLIDE 8: É TUDO DE GRAÇA ===================== -->
+        <div class="w-full max-w-6xl" data-aos="fade-up">
+            <div class="text-center mb-2">
+                <h2 class="text-4xl md:text-5xl font-bold mb-2">E é tudo de <span class="primary-color italic">graça</span></h2>
+                <p class="text-white/60 italic text-lg md:text-xl">Aberto. Livre. Para todo mundo.</p>
+            </div>
+            <div class="glass-card rounded-2xl p-1 md:p-2">
+                <div class="flex items-center justify-between mb-2 px-1">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-[#FF904D]/15 flex items-center justify-center"><i data-lucide="gift" class="w-5 h-5 primary-color"></i></div>
+                        <div><p class="text-white font-bold text-sm">O núcleo que se entrega</p><p class="text-white/50 text-xs italic">Irradia pra fora, sem pedir nada em troca.</p></div>
+                    </div>
+                    <button id="replay-gratis" class="replay-btn" type="button"><i data-lucide="rotate-cw" class="w-4 h-4"></i> Replay</button>
+                </div>
+                <!-- @MIRA:SIZE 3/10 -->
+                <div class="anim-stage" id="gratis-stage"><svg id="gratis-svg" viewBox="140 -393 1000 1586" preserveAspectRatio="xMidYMid meet"></svg></div>
+            </div>
+
+            <!-- Links: documentacao (3 linguas) + codigo no GitHub -->
+            <div class="flex flex-wrap items-center justify-center gap-3 mt-5" data-aos="fade-up">
+                <a href="https://sandeco.github.io/mira-animator/" target="_blank" rel="noopener" class="inline-flex items-center rounded-xl overflow-hidden text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-transform" style="text-decoration:none">
+                    <span class="flex items-center gap-2 px-4 py-2.5" style="background:#1b1b1f"><i data-lucide="book-open" class="w-4 h-4" style="color:#FF904D"></i><span style="color:rgba(255,255,255,.75);letter-spacing:.06em">DOCS</span></span>
+                    <span class="px-4 py-2.5" style="background:#16a34a;color:#fff;letter-spacing:.04em">ENGLISH</span>
+                </a>
+                <a href="https://sandeco.github.io/mira-animator/pt/" target="_blank" rel="noopener" class="inline-flex items-center rounded-xl overflow-hidden text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-transform" style="text-decoration:none">
+                    <span class="flex items-center gap-2 px-4 py-2.5" style="background:#1b1b1f"><i data-lucide="book-open" class="w-4 h-4" style="color:#FF904D"></i><span style="color:rgba(255,255,255,.75);letter-spacing:.06em">DOCS</span></span>
+                    <span class="px-4 py-2.5" style="background:#eab308;color:#1a1a1a;letter-spacing:.04em">PORTUGU&Ecirc;S</span>
+                </a>
+                <a href="https://sandeco.github.io/mira-animator/es/" target="_blank" rel="noopener" class="inline-flex items-center rounded-xl overflow-hidden text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-transform" style="text-decoration:none">
+                    <span class="flex items-center gap-2 px-4 py-2.5" style="background:#1b1b1f"><i data-lucide="book-open" class="w-4 h-4" style="color:#FF904D"></i><span style="color:rgba(255,255,255,.75);letter-spacing:.06em">DOCS</span></span>
+                    <span class="px-4 py-2.5" style="background:#dc2626;color:#fff;letter-spacing:.04em">ESPA&Ntilde;OL</span>
+                </a>
+                <a href="https://github.com/sandeco/mira-animator" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg hover:-translate-y-0.5 transition-transform" style="background:#1b1b1f;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.15)"><svg viewBox="0 0 16 16" class="w-4 h-4" style="fill:#FF904D" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> GitHub</a>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="py-16 text-center">
+        <img src="logo.png" alt="Canal Sandeco" class="h-7 mx-auto opacity-60 mb-4">
+        <p class="text-white/30 text-sm">MIRA · Metáforas Inteligentes Responsivas e Animadas</p>
+    </footer>
+
+    <!-- ===================== SCRIPT: NAV + ANIMAÇÕES D3 ===================== -->
+    <script>
+        AOS.init({ duration: 800, once: true, offset: 100 });
+        lucide.createIcons();
+
+        /* 9:16 — auto-ajuste de titulo: encolhe ate caber em no maximo 2 linhas */
+        (function () {
+            const MAX_LINES = 2, MIN_FONT = 18;
+            function fitTitles() {
+                document.querySelectorAll('.fullscreen-wrapper h2').forEach(h2 => {
+                    h2.style.removeProperty('font-size');
+                    let font = parseFloat(getComputedStyle(h2).fontSize), guard = 0;
+                    while (h2.scrollHeight > parseFloat(getComputedStyle(h2).lineHeight) * MAX_LINES + 2 && font > MIN_FONT && guard < 90) {
+                        font -= 1; h2.style.setProperty('font-size', font + 'px', 'important'); guard++;
+                    }
+                });
+            }
+            window.addEventListener('load', () => setTimeout(fitTitles, 60));
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTitles);
+            window.addEventListener('resize', () => { clearTimeout(window.__fitT); window.__fitT = setTimeout(fitTitles, 150); });
+        })();
+
+        const ACCENT = '#FF904D', HOT = '#fff1e0';
+
+        /* ---------- Navegação card-a-card ---------- */
+        const cardSections = [];
+        function buildCardSections() { cardSections.length = 0; document.querySelectorAll('.fullscreen-wrapper').forEach(el => cardSections.push(el)); }
+        function getIdx() { const top = window.scrollY + innerHeight * 0.3; let i = -1; cardSections.forEach((s, k) => { if (s.offsetTop <= top) i = k; }); return i; }
+        addEventListener('scroll', () => {
+            const st = scrollY, dh = document.documentElement.scrollHeight - innerHeight;
+            document.getElementById('reading-progress').style.width = (st / dh * 100) + '%';
+            document.getElementById('next-card').classList.toggle('visible', st > 300);
+        });
+        document.getElementById('next-card').addEventListener('click', () => {
+            const atEnd = (scrollY + innerHeight) >= (document.documentElement.scrollHeight - 100);
+            if (atEnd) { scrollTo({ top: 0, behavior: 'smooth' }); return; }
+            const n = getIdx() + 1; if (n < cardSections.length) cardSections[n].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        function setupWrappers() {
+            const main = document.querySelector('main'); if (!main) return;
+            main.classList.remove('gap-[60vh]', 'py-20');
+            Array.from(main.children).forEach(c => {
+                if (!c.classList.contains('fullscreen-wrapper')) {
+                    const w = document.createElement('div');
+                    w.className = 'min-h-screen w-full flex items-center justify-center fullscreen-wrapper p-4';
+                    c.parentNode.insertBefore(w, c);
+                    const bgVideo = c.dataset.bgVideo;
+                    if (bgVideo) {
+                        w.classList.add('slide-video-wrapper');
+                        const video = document.createElement('video');
+                        video.className = 'slide-bg-video';
+                        video.autoplay = true; video.loop = true; video.muted = true;
+                        video.playsInline = true; video.preload = 'auto';
+                        const source = document.createElement('source');
+                        source.src = bgVideo; source.type = 'video/mp4';
+                        video.appendChild(source);
+                        const overlay = document.createElement('div');
+                        overlay.className = 'slide-bg-overlay';
+                        w.appendChild(video); w.appendChild(overlay);
+                    }
+                    w.appendChild(c);
+                }
+            });
+            buildCardSections();
+        }
+
+        /* ---------- Trigger de animações ---------- */
+        function setupTriggers() {
+            const stages = [
+                { id: 'ponte-stage', fn: animatePonte },
+                { id: 'agua-stage', fn: animateAgua, replay: 'replay-agua' },
+                { id: 'dna-stage', fn: animateDna, replay: 'replay-dna' },
+                { id: 'nasce-stage', fn: animateNasce, replay: 'replay-nasce' },
+                { id: 'ideia-stage', fn: animateIdeia, replay: 'replay-ideia' },
+                { id: 'formatos-stage', fn: animateFormatos, replay: 'replay-formatos' },
+                { id: 'pilares-stage', fn: animatePilares, replay: 'replay-pilares' },
+                { id: 'gratis-stage', fn: animateGratis, replay: 'replay-gratis' },
+            ].map(s => ({ ...s, el: document.getElementById(s.id) })).filter(s => s.el);
+
+            const obs = new IntersectionObserver(es => es.forEach(e => {
+                if (e.isIntersecting) { const s = stages.find(s => s.el === e.target); if (s) s.fn(); }
+            }), { threshold: 0.3 });
+            stages.forEach(s => { obs.observe(s.el); if (s.replay) { const b = document.getElementById(s.replay); if (b) b.addEventListener('click', s.fn); } });
+        }
+
+        addEventListener('DOMContentLoaded', () => {
+            setupWrappers(); setupTriggers();
+            const hb = document.getElementById('header-next-btn');
+            if (hb) hb.addEventListener('click', () => { if (cardSections.length) cardSections[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+            addEventListener('keydown', e => {
+                const i = getIdx();
+                if (['ArrowRight', 'ArrowDown', 'PageDown'].includes(e.key)) { e.preventDefault(); if (i + 1 < cardSections.length) cardSections[i + 1].scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+                else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); if (i - 1 >= 0) cardSections[i - 1].scrollIntoView({ behavior: 'smooth', block: 'start' }); else scrollTo({ top: 0, behavior: 'smooth' }); }
+            });
+            addEventListener('resize', setupWrappers);
+            animatePonte();
+        });
+
+        /* ---------- helper: filtro glow ---------- */
+        function addGlow(svg, id, dev) {
+            const f = svg.append('defs').append('filter').attr('id', id).attr('x', '-80%').attr('y', '-80%').attr('width', '260%').attr('height', '260%');
+            f.append('feGaussianBlur').attr('stdDeviation', dev || 8).attr('result', 'b');
+            const m = f.append('feMerge'); m.append('feMergeNode').attr('in', 'b'); m.append('feMergeNode').attr('in', 'SourceGraphic');
+        }
+        function nextGen(name) { window[name] = (window[name] || 0) + 1; return window[name]; }
+
+        /* =====================================================================
+           SLIDE 1 — PONTE (metáfora = ponte entre duas ideias)
+           Loop: a ponte desenha, um pulso de luz atravessa de A para B, repete.
+           ===================================================================== */
+        function animatePonte() {
+            const svg = d3.select('#ponte-svg'); svg.selectAll('*').remove();
+            const myGen = nextGen('__ponteGen'); clearTimeout(window.__ponteT);
+            addGlow(svg, 'ponte-glow', 7);
+            const W = 1280, H = 480, ax = 300, bx = 980, y = 300;
+            const arc = `M${ax},${y} C${ax + 180},${y - 230} ${bx - 180},${y - 230} ${bx},${y}`;
+            // margens
+            [[ax, 'abstrato'], [bx, 'concreto']].forEach(([x, lbl]) => {
+                svg.append('circle').attr('cx', x).attr('cy', y).attr('r', 34).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 3).attr('opacity', .6);
+                svg.append('circle').attr('cx', x).attr('cy', y).attr('r', 12).attr('fill', ACCENT).attr('filter', 'url(#ponte-glow)');
+                svg.append('text').attr('x', x).attr('y', y + 70).attr('text-anchor', 'middle').attr('fill', 'rgba(255,255,255,.45)').attr('font-size', 22).attr('font-style', 'italic').text(lbl);
+            });
+            const path = svg.append('path').attr('d', arc).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 4).attr('stroke-opacity', .35).attr('stroke-dasharray', '6,10');
+            const len = path.node().getTotalLength();
+            const pulse = svg.append('circle').attr('r', 11).attr('fill', HOT).attr('filter', 'url(#ponte-glow)').attr('opacity', 0);
+
+            (function cross() {
+                if (myGen !== window.__ponteGen) return;
+                pulse.attr('opacity', 1);
+                pulse.transition().duration(1700).ease(d3.easeQuadInOut)
+                    .attrTween('transform', () => t => { const p = path.node().getPointAtLength(t * len); return `translate(${p.x},${p.y})`; })
+                    .on('end', () => {
+                        if (myGen !== window.__ponteGen) return;
+                        // a ideia "chega" no lado concreto: pulso radial
+                        svg.append('circle').attr('cx', bx).attr('cy', y).attr('r', 12).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 3)
+                            .transition().duration(700).attr('r', 60).attr('stroke-opacity', 0).remove();
+                        pulse.attr('opacity', 0);
+                        window.__ponteT = setTimeout(cross, 700);
+                    });
+            })();
+        }
+
+        /* =====================================================================
+           SLIDE 2 — CICLO DA ÁGUA (mil palavras -> mil imagens)
+           Diagrama parado (sol, mar, nuvem, montanha + setas tracejadas) que
+           dissolve numa máquina viva: vapor sobe do mar, a nuvem enche e chove,
+           a chuva volta ao mar (splash). Loop perpétuo.
+           ===================================================================== */
+        function animateAgua() {
+            const svg = d3.select('#agua-svg'); svg.selectAll('*').remove();
+            const gen = nextGen('__aguaGen');
+            if (window.__aguaRaf) cancelAnimationFrame(window.__aguaRaf);
+            clearTimeout(window.__aguaT);
+            addGlow(svg, 'agua-glow', 6);
+            const MUTE = '#8d949c';
+            // paleta natural (aplicada ao "ganhar vida")
+            const C_SUN = '#FFC93C', C_SEA = '#3FA7E0', C_RAIN = '#7CCBF2', C_VAPOR = '#CDEBFF',
+                C_CLOUD = '#d4dae0', C_STORM = '#5d6b7a', C_MTN = '#74A98C', C_SNOW = '#ffffff';
+
+            const seaY = 1480, cloud = { x: 640, y: 560 }, sun = { x: 230, y: 230, r: 64 };
+            const gBack = svg.append('g'), gParts = svg.append('g'), gFront = svg.append('g');
+
+            const gSun = gBack.append('g');
+            const sunC = gSun.append('circle').attr('cx', sun.x).attr('cy', sun.y).attr('r', sun.r).attr('fill', C_SUN).attr('fill-opacity', 0).attr('stroke', MUTE).attr('stroke-width', 3).attr('class', 'sun');
+            for (let i = 0; i < 12; i++) { const a = i / 12 * 2 * Math.PI;
+                gSun.append('line').attr('x1', sun.x + Math.cos(a) * (sun.r + 12)).attr('y1', sun.y + Math.sin(a) * (sun.r + 12))
+                    .attr('x2', sun.x + Math.cos(a) * (sun.r + 34)).attr('y2', sun.y + Math.sin(a) * (sun.r + 34))
+                    .attr('stroke', MUTE).attr('stroke-width', 3).attr('stroke-linecap', 'round').attr('class', 'sun'); }
+
+            gBack.append('path').attr('d', `M820,${seaY} L1060,980 L1300,${seaY} Z`).attr('fill', 'none').attr('stroke', MUTE).attr('stroke-width', 3).attr('stroke-linejoin', 'round').attr('class', 'mtn');
+            gBack.append('path').attr('d', `M1010,1020 L1060,980 L1110,1020 L1085,1035 L1060,1020 L1035,1035 Z`).attr('fill', 'none').attr('stroke', MUTE).attr('stroke-width', 2).attr('class', 'snow');
+
+            const gCloud = gBack.append('g');
+            [[-95, 8, 46], [-32, -18, 60], [42, -10, 56], [98, 12, 44], [0, 24, 62]].forEach(p =>
+                gCloud.append('circle').attr('cx', cloud.x + p[0]).attr('cy', cloud.y + p[1]).attr('r', p[2]).attr('fill', C_STORM).attr('fill-opacity', 0).attr('stroke', MUTE).attr('stroke-width', 3).attr('class', 'cloud cloudstroke'));
+
+            gFront.append('path').attr('d', `M0,${seaY} L1280,${seaY} L1280,2030 L0,2030 Z`).attr('fill', C_SEA).attr('fill-opacity', 0).attr('stroke', MUTE).attr('stroke-width', 3).attr('class', 'sea seabody');
+            const seaWave = gBack.append('path').attr('fill', 'none').attr('stroke', MUTE).attr('stroke-width', 3).attr('class', 'sea');
+            const waveD = t => { let d = `M0,${seaY}`; for (let x = 0; x <= 1280; x += 36) d += ` L${x},${(seaY + Math.sin(x * 0.018 + t * 2) * 9).toFixed(1)}`; return d; };
+            seaWave.attr('d', waveD(0));
+
+            const gDiag = gBack.append('g');
+            const dash = (d) => gDiag.append('path').attr('d', d).attr('fill', 'none').attr('stroke', MUTE).attr('stroke-width', 2).attr('stroke-dasharray', '7,9');
+            dash(`M300,${seaY - 10} C 230,1120 430,780 540,650`);
+            dash(`M760,650 C 870,780 1070,1120 1000,${seaY - 10}`);
+            const lbl = (x, y, t) => gDiag.append('text').attr('x', x).attr('y', y).attr('fill', MUTE).attr('font-size', 30).attr('font-weight', 600).attr('letter-spacing', 2).attr('text-anchor', 'middle').text(t);
+            lbl(300, 1015, 'EVAPORAÇÃO'); lbl(980, 1015, 'PRECIPITAÇÃO');
+
+            let alive = false, t0 = 0, cloudFill = 0;
+            const vapor = [], rain = [];
+
+            window.__aguaT = setTimeout(() => {
+                if (gen !== window.__aguaGen) return;
+                alive = true; t0 = performance.now();
+                gDiag.transition().duration(700).attr('opacity', 0).remove();
+                svg.append('circle').attr('cx', sun.x).attr('cy', sun.y).attr('r', sun.r).attr('fill', 'none').attr('stroke', HOT).attr('stroke-width', 4)
+                    .transition().duration(800).ease(d3.easeQuadOut).attr('r', 1400).attr('stroke-opacity', 0).remove();
+                svg.selectAll('.sun').transition().duration(600).attr('stroke', C_SUN);
+                sunC.transition().duration(600).attr('fill-opacity', .9);
+                svg.selectAll('.mtn').transition().duration(600).attr('stroke', C_MTN);
+                svg.selectAll('.snow').transition().duration(600).attr('stroke', C_SNOW);
+                svg.selectAll('.cloudstroke').transition().duration(600).attr('stroke', C_CLOUD);
+                svg.selectAll('.sea').transition().duration(600).attr('stroke', C_SEA);
+                svg.select('.seabody').transition().duration(600).attr('fill-opacity', .14);
+                gSun.attr('filter', 'url(#agua-glow)');
+            }, 1700);
+
+            function frame(now) {
+                if (gen !== window.__aguaGen) return;
+                if (alive) {
+                    const t = (now - t0) / 1000;
+                    gSun.attr('transform', `rotate(${t * 14},${sun.x},${sun.y})`);
+                    gCloud.attr('transform', `translate(0,${Math.sin(t * 1.5) * 7})`);
+                    seaWave.attr('d', waveD(t));
+                    cloudFill = Math.min(1, cloudFill + 0.005);
+                    svg.selectAll('.cloud').attr('fill-opacity', cloudFill * 0.34);
+
+                    if (Math.random() < 0.7) { const x = 120 + Math.random() * 470; vapor.push({ x, y: seaY, vx: (cloud.x - x) / 250 + (Math.random() - .5) * .6, vy: -(2.4 + Math.random() * 2.6), r: 5 + Math.random() * 6, o: 0 }); }
+                    if (cloudFill > 0.45 && Math.random() < 0.55) rain.push({ x: cloud.x - 200 + Math.random() * 400, y: cloud.y + 55, vy: 9 + Math.random() * 5, len: 22 + Math.random() * 16 });
+                    if (cloudFill > 0.62 && Math.random() < 0.009) bolt();
+
+                    for (let i = vapor.length - 1; i >= 0; i--) { const p = vapor[i]; p.x += p.vx; p.y += p.vy; p.o = Math.min(.8, p.o + .04); if (p.y < cloud.y + 30) vapor.splice(i, 1); }
+                    for (let i = rain.length - 1; i >= 0; i--) { const p = rain[i]; p.y += p.vy; if (p.y >= seaY) { splash(p.x); rain.splice(i, 1); } }
+
+                    const v = gParts.selectAll('circle.vap').data(vapor);
+                    v.enter().append('circle').attr('class', 'vap').attr('fill', C_VAPOR).merge(v).attr('cx', d => d.x).attr('cy', d => d.y).attr('r', d => d.r).attr('opacity', d => d.o);
+                    v.exit().remove();
+                    const r = gParts.selectAll('line.rain').data(rain);
+                    r.enter().append('line').attr('class', 'rain').attr('stroke', C_RAIN).attr('stroke-width', 3.5).attr('stroke-linecap', 'round').attr('opacity', .85)
+                        .merge(r).attr('x1', d => d.x).attr('y1', d => d.y).attr('x2', d => d.x).attr('y2', d => d.y + d.len);
+                    r.exit().remove();
+                }
+                window.__aguaRaf = requestAnimationFrame(frame);
+            }
+            function splash(x) { gParts.append('circle').attr('cx', x).attr('cy', seaY).attr('r', 3).attr('fill', 'none').attr('stroke', C_RAIN).attr('stroke-width', 2.5).attr('opacity', .7).transition().duration(520).ease(d3.easeQuadOut).attr('r', 34).attr('opacity', 0).remove(); }
+            function jagged(sx, sy, ey, spread) {
+                let d = `M${sx},${sy}`, x = sx; const steps = 5 + Math.floor(Math.random() * 3);
+                for (let i = 1; i <= steps; i++) { const y = sy + (ey - sy) * i / steps; x = sx + (i / steps - 0.5) * spread + (Math.random() - .5) * 64; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
+                return { d, ex: x };
+            }
+            function bolt() {
+                const sx = cloud.x - 120 + Math.random() * 240, sy = cloud.y + 48, ey = seaY - 30 - Math.random() * 110;
+                const main = jagged(sx, sy, ey, (Math.random() - .5) * 120);
+                const g = gParts.append('g').attr('filter', 'url(#agua-glow)');
+                g.append('path').attr('d', main.d).attr('fill', 'none').attr('stroke', C_RAIN).attr('stroke-width', 6).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('opacity', .85);
+                g.append('path').attr('d', main.d).attr('fill', 'none').attr('stroke', '#ffffff').attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('opacity', 1);
+                // galho ocasional
+                if (Math.random() < 0.6) { const br = jagged(main.ex, (sy + ey) / 2 + 20, ey + 30, 90); g.append('path').attr('d', br.d).attr('fill', 'none').attr('stroke', '#ffffff').attr('stroke-width', 1.5).attr('opacity', .8); }
+                // flash de tela + flicker do raio
+                gParts.append('rect').attr('x', 0).attr('y', 0).attr('width', 1280).attr('height', 2030).attr('fill', HOT).attr('opacity', .2).transition().duration(240).attr('opacity', 0).remove();
+                g.attr('opacity', 1).transition().duration(70).attr('opacity', .35).transition().duration(60).attr('opacity', 1).transition().duration(280).attr('opacity', 0).remove();
+            }
+            window.__aguaRaf = requestAnimationFrame(frame);
+        }
+
+        /* =====================================================================
+           SLIDE 2B — DNA
+           Dupla hélice parada (parece plana). Acende e começa a girar: as fitas
+           varrem, os pares de base ganham profundidade (perspectiva via tamanho
+           e brilho), frente em HOT, fundo apagado. Loop perpétuo.
+           ===================================================================== */
+        function animateDna() {
+            const svg = d3.select('#dna-svg'); svg.selectAll('*').remove();
+            const gen = nextGen('__dnaGen');
+            if (window.__dnaRaf) cancelAnimationFrame(window.__dnaRaf);
+            clearTimeout(window.__dnaT);
+            addGlow(svg, 'dna-glow', 6);
+            const MUTE = '#8d949c';
+
+            const cx = 640, top = 130, bot = 1900, A = 185, turns = 4.4, M = 88;
+            const gRungs = svg.append('g'), gS1 = svg.append('path').attr('fill', 'none').attr('stroke-width', 7).attr('stroke-linecap', 'round'),
+                gS2 = svg.append('path').attr('fill', 'none').attr('stroke-width', 7).attr('stroke-linecap', 'round'), gNodes = svg.append('g');
+            let alive = false, t0 = 0, phase = 0;
+
+            // bases coloridas: cada par é complementar (A-T, C-G), em cores alternadas
+            const PAL = { A: '#4ADE80', T: '#F87171', C: '#60A5FA', G: '#FBBF24' }, COMP = { A: 'T', T: 'A', C: 'G', G: 'C' };
+            const SEQ = 'ATCGGCTAACGTTAGCCGATATGCTACGGATCCGTAATGCGTACGATC'.split('');
+
+            function render() {
+                const s1 = [], s2 = [], nodes = [], rungs = [];
+                for (let i = 0; i < M; i++) {
+                    const f = i / (M - 1), y = top + (bot - top) * f, th = phase + f * turns * 2 * Math.PI;
+                    const sn = Math.sin(th), z = Math.cos(th);
+                    const x1 = cx + A * sn, x2 = cx - A * sn;
+                    const base = SEQ[i % SEQ.length], c1 = PAL[base], c2 = PAL[COMP[base]];
+                    s1.push([x1, y]); s2.push([x2, y]);
+                    nodes.push({ x: x1, y, z, c: c1 }, { x: x2, y, z: -z, c: c2 });
+                    if (i % 3 === 0) rungs.push({ x1, x2, y, fz: z });
+                }
+                const line = pts => 'M' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' L');
+                const col = alive ? '#aebccb' : MUTE;
+                gS1.attr('d', line(s1)).attr('stroke', col).attr('stroke-opacity', alive ? .5 : .5);
+                gS2.attr('d', line(s2)).attr('stroke', col).attr('stroke-opacity', alive ? .5 : .5);
+
+                const rg = gRungs.selectAll('line').data(rungs);
+                rg.enter().append('line').merge(rg)
+                    .attr('x1', d => d.x1).attr('y1', d => d.y).attr('x2', d => d.x2).attr('y2', d => d.y)
+                    .attr('stroke', alive ? '#cfd6dd' : MUTE).attr('stroke-width', 3).attr('stroke-opacity', d => alive ? 0.18 + 0.4 * (d.fz + 1) / 2 : .35);
+                rg.exit().remove();
+
+                const nd = gNodes.selectAll('circle').data(nodes);
+                nd.enter().append('circle').merge(nd)
+                    .attr('cx', d => d.x).attr('cy', d => d.y)
+                    .attr('r', d => 7 + 6 * (d.z + 1) / 2)
+                    .attr('fill', d => alive ? d.c : MUTE)
+                    .attr('opacity', d => alive ? 0.4 + 0.6 * (d.z + 1) / 2 : .6)
+                    .attr('filter', d => alive && d.z > 0.2 ? 'url(#dna-glow)' : null);
+                nd.exit().remove();
+            }
+            render();
+
+            window.__dnaT = setTimeout(() => {
+                if (gen !== window.__dnaGen) return;
+                alive = true; t0 = performance.now();
+                svg.append('circle').attr('cx', cx).attr('cy', (top + bot) / 2).attr('r', 20).attr('fill', 'none').attr('stroke', HOT).attr('stroke-width', 4)
+                    .transition().duration(800).ease(d3.easeQuadOut).attr('r', 460).attr('stroke-opacity', 0).remove();
+            }, 1600);
+
+            function frame(now) {
+                if (gen !== window.__dnaGen) return;
+                if (alive) { phase = (now - t0) / 1000 * 1.6; render(); }
+                window.__dnaRaf = requestAnimationFrame(frame);
+            }
+            window.__dnaRaf = requestAnimationFrame(frame);
+        }
+
+        /* =====================================================================
+           SLIDE 3 — NASCE O MIRA (clímax espetacular)
+           Faíscas com rastro entram, colidem no centro: FLASH + ondas de choque +
+           explosão. O nome MIRA bate com impacto (overshoot), raios giram atrás e
+           brasas orbitam pra sempre, com re-pulsos periódicos. Loop interno perpétuo.
+           ===================================================================== */
+        function animateNasce() {
+            const svg = d3.select('#nasce-svg'); svg.selectAll('*').remove();
+            const myGen = nextGen('__nasceGen');
+            clearTimeout(window.__nasceT);
+            if (window.__nasceRaf) cancelAnimationFrame(window.__nasceRaf);
+            addGlow(svg, 'nasce-glow', 12);
+            const cx = 640, cy = 345;
+            let dotI = null;
+
+            const gRays = svg.append('g').attr('opacity', 0);        // raios atrás
+            const gEmber = svg.append('g');                          // brasas
+            const core = svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 0).attr('fill', HOT).attr('filter', 'url(#nasce-glow)');
+            const gName = svg.append('g').attr('opacity', 0);
+            gName.append('text').attr('text-anchor', 'middle').attr('dominant-baseline', 'central').attr('fill', ACCENT)
+                .attr('font-size', 200).attr('font-weight', 900).attr('letter-spacing', 12).attr('filter', 'url(#nasce-glow)').text('MIRA');
+            const nasceSub = gName.append('text').attr('text-anchor', 'middle').attr('y', 168).attr('fill', '#fff').attr('opacity', .72)
+                .attr('font-size', 36).attr('font-weight', 500).attr('font-style', 'italic').attr('letter-spacing', 2.5);
+            [['M', 1], ['etáforas ', 0], ['I', 1], ['nteligentes ', 0], ['R', 1], ['esponsivas e ', 0], ['A', 1], ['nimadas', 0]]
+                .forEach(([txt, hl]) => nasceSub.append('tspan').attr('fill', hl ? ACCENT : '#fff').attr('font-weight', hl ? 900 : 500).text(txt));
+
+            // raios de luz (leque que gira)
+            const NR = 18, rays = [];
+            for (let i = 0; i < NR; i++) {
+                const a = i / NR * Math.PI * 2, w = 0.05;
+                const p1 = [cx + Math.cos(a - w) * 105, cy + Math.sin(a - w) * 105];
+                const p2 = [cx + Math.cos(a) * 780, cy + Math.sin(a) * 780];
+                const p3 = [cx + Math.cos(a + w) * 105, cy + Math.sin(a + w) * 105];
+                rays.push(gRays.append('path').attr('d', `M${p1} L${p2} L${p3} Z`).attr('fill', ACCENT).attr('opacity', i % 2 ? .14 : .07));
+            }
+            // brasas que orbitam
+            const embers = [];
+            for (let i = 0; i < 16; i++) embers.push({ a: Math.random() * Math.PI * 2, r: 225 + Math.random() * 345, sp: (.2 + Math.random() * .5) * (Math.random() < .5 ? -1 : 1), bob: Math.random() * 6, el: gEmber.append('circle').attr('r', 2 + Math.random() * 4).attr('fill', ACCENT).attr('opacity', 0) });
+
+            function shock(delay) {
+                svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 36).attr('fill', 'none').attr('stroke', HOT).attr('stroke-width', 6).attr('opacity', .9)
+                    .transition().delay(delay || 0).duration(900).ease(d3.easeCubicOut).attr('r', 780).attr('stroke-width', 1).attr('opacity', 0).remove();
+            }
+
+            // FASE 1 — faíscas com rastro convergem e colidem
+            const n = 30; let done = 0;
+            for (let k = 0; k < n; k++) {
+                const a = Math.random() * Math.PI * 2, d = 630 + Math.random() * 390;
+                const sx = cx + Math.cos(a) * d, sy = cy + Math.sin(a) * d;
+                const s = svg.append('circle').attr('cx', sx).attr('cy', sy).attr('r', 4 + Math.random() * 4).attr('fill', HOT).attr('filter', 'url(#nasce-glow)').attr('opacity', .95);
+                s.transition().duration(820 + Math.random() * 360).ease(d3.easeCubicIn).attr('cx', cx).attr('cy', cy)
+                    .on('end', function () { d3.select(this).remove(); if (++done >= n && myGen === window.__nasceGen) ignite(); });
+                // rastro
+                for (let j = 1; j <= 3; j++) svg.append('circle').attr('cx', sx + (cx - sx) * j * .18).attr('cy', sy + (cy - sy) * j * .18).attr('r', 3).attr('fill', ACCENT).attr('opacity', .4 / j)
+                    .transition().duration(700).attr('opacity', 0).remove();
+            }
+
+            function ignite() {
+                if (myGen !== window.__nasceGen) return;
+                // FLASH branco preenchendo o palco
+                svg.append('rect').attr('x', 0).attr('y', -670).attr('width', 1280).attr('height', 2030).attr('fill', '#fff').attr('opacity', 0)
+                    .transition().duration(110).attr('opacity', .85).transition().duration(420).attr('opacity', 0).remove();
+                // ondas de choque
+                shock(0); shock(140); shock(300);
+                // explosão de partículas pra fora
+                for (let k = 0; k < 34; k++) {
+                    const a = Math.random() * Math.PI * 2, d = 300 + Math.random() * 480;
+                    svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 3 + Math.random() * 5).attr('fill', k % 2 ? HOT : ACCENT).attr('filter', 'url(#nasce-glow)')
+                        .transition().duration(900 + Math.random() * 500).ease(d3.easeCubicOut).attr('cx', cx + Math.cos(a) * d).attr('cy', cy + Math.sin(a) * d).attr('opacity', 0).remove();
+                }
+                // núcleo estoura e some (não fica pingo parado atrás do nome)
+                core.attr('r', 0).attr('opacity', 1).transition().duration(180).attr('r', 135).transition().duration(520).ease(d3.easeCubicOut).attr('r', 0).attr('opacity', 0);
+                // raios aparecem
+                gRays.transition().duration(500).attr('opacity', 1);
+                embers.forEach(e => e.el.transition().delay(200).duration(600).attr('opacity', .7));
+                // NOME bate com impacto (overshoot)
+                gName.attr('transform', `translate(${cx},${cy}) scale(2.1)`).attr('opacity', 0);
+                gName.transition().delay(120).duration(620).ease(d3.easeBackOut.overshoot(1.5))
+                    .attr('transform', `translate(${cx},${cy}) scale(1)`).attr('opacity', 1)
+                    .on('end', () => { window.__nasceReady = myGen; });
+                // a faísca final da convergência sobe e vira o pingo do "I" de MIRA
+                let ixLocal = -92;
+                try { const node = gName.select('text').node(); const a = node.getStartPositionOfChar(1), b = node.getEndPositionOfChar(1); ixLocal = (a.x + b.x) / 2; } catch (e) { }
+                dotI = gName.append('circle').attr('cx', 0).attr('cy', 0).attr('r', 26).attr('fill', HOT).attr('filter', 'url(#nasce-glow)').attr('opacity', 1);
+                dotI.transition().delay(820).duration(560).ease(d3.easeBackOut.overshoot(2)).attr('cx', ixLocal).attr('cy', -118).attr('r', 18);
+                // ambiente perpétuo
+                startAmbient();
+            }
+
+            function startAmbient() {
+                const t0 = performance.now(); let lastPulse = 0;
+                function loop(now) {
+                    if (myGen !== window.__nasceGen) return;
+                    const t = (now - t0) / 1000;
+                    gRays.attr('transform', `rotate(${t * 14},${cx},${cy})`);
+                    embers.forEach(e => { const a = e.a + t * e.sp; const r = e.r + Math.sin(t * 1.5 + e.bob) * 10; e.el.attr('cx', cx + Math.cos(a) * r).attr('cy', cy + Math.sin(a) * r); });
+                    if (window.__nasceReady === myGen) {
+                        const s = 1 + 0.035 * Math.sin(t * 2.4);
+                        gName.attr('transform', `translate(${cx},${cy}) scale(${s})`);
+                    }
+                    if (dotI) dotI.attr('r', 13 * (1 + 0.16 * Math.sin(t * 3)));
+                    if (t - lastPulse > 4.2) { lastPulse = t; shock(0); }
+                    window.__nasceRaf = requestAnimationFrame(loop);
+                }
+                window.__nasceRaf = requestAnimationFrame(loop);
+            }
+        }
+
+        /* =====================================================================
+           SLIDE 4 — METÁFORAS ANIMADAS (a imagem que ganha vida)
+           Cabeça laranja do MIRA (assets/head.png) com engrenagens encaixadas
+           sobre o cérebro. Começa PARADA (cabeça apagada, engrenagens cinza) e
+           ganha vida: a cabeça acende, as engrenagens coloriam e giram juntas,
+           e faíscas de ideia sobem pelo topo. Loop perpétuo.
+           ===================================================================== */
+        function animateIdeia() {
+            const svg = d3.select('#ideia-svg'); svg.selectAll('*').remove();
+            const gen = nextGen('__ideiaGen');
+            clearTimeout(window.__ideiaT1); clearTimeout(window.__ideiaT2);
+            if (window.__ideiaRaf) cancelAnimationFrame(window.__ideiaRaf);
+            addGlow(svg, 'ideia-glow', 7);
+            const MUTE = '#8d949c';
+            const GC = ['#ffffff', '#4a2e18', '#ffe3cc', '#6b4220', '#ffffff', '#3a2516'];
+
+            // partículas flutuando no fundo do card (efeito mágica) — atrás de tudo
+            const gDust = svg.append('g');
+            const dust = [];
+            for (let i = 0; i < 46; i++) {
+                const p = { x: Math.random() * 1280, y: Math.random() * 2030, r: 1.2 + Math.random() * 2.8, sp: 6 + Math.random() * 16, sw: 0.3 + Math.random() * 0.8, ph: Math.random() * Math.PI * 2, tw: 0.8 + Math.random() * 1.8 };
+                p.el = gDust.append('circle').attr('r', p.r).attr('fill', Math.random() < 0.5 ? ACCENT : HOT).attr('opacity', .2);
+                dust.push(p);
+            }
+
+            function gearPath(R, N) {
+                const ro = R, rr = R * 0.78, step = 2 * Math.PI / N, g = 0.42, ta = step * (1 - g) / 2;
+                const p = (a, r) => [(Math.cos(a) * r).toFixed(1), (Math.sin(a) * r).toFixed(1)];
+                let d = '';
+                for (let i = 0; i < N; i++) { const a = i * step; d += (i ? 'L' : 'M') + p(a - step / 2, rr) + ' L' + p(a - ta, ro) + ' L' + p(a + ta, ro) + ' L' + p(a + step / 2, rr) + ' '; }
+                return d + 'Z';
+            }
+
+            // origem do "poder": centro do cérebro (de onde saem os relâmpagos)
+            const RCx = 660, RCy = 955;
+
+            // cabeça: imagem PNG laranja do MIRA (perfil). Começa apagada e acende.
+            const head = svg.append('image').attr('href', 'assets/head.png').attr('xlink:href', 'assets/head.png')
+                .attr('x', 280).attr('y', 655).attr('width', 720).attr('height', 720).attr('opacity', .4);
+
+            // engrenagens encaixadas (cadeia) + duas independentes, dentro do crânio
+            const chain = [{ R: 58, N: 16, ang: 0 }, { R: 42, N: 12, ang: 55 }, { R: 50, N: 14, ang: -30 }, { R: 34, N: 10, ang: 95 }];
+            const gears = [];
+            chain.forEach((g, i) => {
+                const o = { R: g.R, N: g.N };
+                if (i === 0) { o.x = 600; o.y = 250; o.rot0 = 0; o.w = 0.5; }
+                else {
+                    const pr = gears[i - 1], ang = g.ang * Math.PI / 180, dist = pr.R + o.R;
+                    o.x = pr.x + Math.cos(ang) * dist; o.y = pr.y + Math.sin(ang) * dist;
+                    const pitchP = 2 * Math.PI / pr.N, pitchC = 2 * Math.PI / o.N;
+                    const fp = ((ang - pr.rot0) % pitchP + pitchP) % pitchP;
+                    o.rot0 = (ang + Math.PI) - pitchC / 2 - fp * pr.N / o.N;
+                    o.w = -pr.w * pr.N / o.N;
+                }
+                gears.push(o);
+            });
+            [{ x: 575, y: 360, R: 28, N: 8, w: -0.85 }, { x: 795, y: 205, R: 22, N: 8, w: 0.95 }].forEach(d => gears.push({ x: d.x, y: d.y, R: d.R, N: d.N, rot0: 0, w: d.w }));
+
+            // reposiciona/escala o cacho de engrenagens sobre o cérebro da imagem
+            const gCluster = svg.append('g').attr('transform', 'translate(670,860) scale(1.15) translate(-679.5,-293.5)');
+            gears.forEach((g, i) => {
+                const grp = gCluster.append('g').attr('transform', `translate(${g.x},${g.y}) rotate(${g.rot0 * 180 / Math.PI})`);
+                g.col = GC[i % GC.length];
+                g.face = grp.append('path').attr('d', gearPath(g.R, g.N)).attr('fill', MUTE).attr('fill-opacity', .85).attr('stroke', MUTE).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('class', 'gp');
+                grp.append('circle').attr('r', g.R * 0.46).attr('fill', 'none').attr('stroke', MUTE).attr('stroke-width', 2.5).attr('class', 'gp');
+                for (let k = 0; k < 5; k++) { const a = k / 5 * 2 * Math.PI; grp.append('line').attr('x1', Math.cos(a) * g.R * 0.16).attr('y1', Math.sin(a) * g.R * 0.16).attr('x2', Math.cos(a) * g.R * 0.46).attr('y2', Math.sin(a) * g.R * 0.46).attr('stroke', MUTE).attr('stroke-width', 2.5).attr('class', 'gp'); }
+                grp.append('circle').attr('r', g.R * 0.15).attr('fill', MUTE).attr('class', 'gp hubdot');
+                g.grp = grp;
+            });
+
+            const gFx = svg.append('g'); // relâmpagos (poder), flash de fundo e anéis — por cima
+            let alive = false, t0 = 0, lastBolt = 0, lastRing = 0, tStart = 0;
+
+            window.__ideiaT1 = setTimeout(() => {
+                if (gen !== window.__ideiaGen) return;
+                alive = true; t0 = performance.now();
+                svg.append('circle').attr('cx', 650).attr('cy', 1005).attr('r', 40).attr('fill', 'none').attr('stroke', HOT).attr('stroke-width', 5)
+                    .transition().duration(800).ease(d3.easeQuadOut).attr('r', 520).attr('stroke-opacity', 0).remove();
+                head.transition().duration(600).attr('opacity', 1);
+                gears.forEach(g => { g.face.transition().duration(600).attr('fill', g.col).attr('fill-opacity', .97); g.grp.attr('filter', 'url(#ideia-glow)'); });
+                svg.selectAll('.gp').transition().duration(600).attr('stroke', '#3a2516').attr('stroke-opacity', .45);
+                svg.selectAll('.hubdot').transition().duration(600).attr('fill', '#2c1c10');
+            }, 1700);
+
+            // anel de energia que sai do centro (igual ao "GRÁTIS")
+            function ring() {
+                gFx.append('circle').attr('cx', RCx).attr('cy', RCy).attr('r', 44).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 3).attr('stroke-opacity', .5)
+                    .transition().duration(2100).ease(d3.easeQuadOut).attr('r', 440).attr('stroke-opacity', 0).attr('stroke-width', 1).remove();
+            }
+            // relâmpago saindo da cabeça numa direção qualquer (cima/lado/baixo)
+            function bolt() {
+                const a = Math.random() * Math.PI * 2, len = 360 + Math.random() * 130, steps = 6 + Math.floor(Math.random() * 3);
+                let d = `M${RCx},${RCy}`;
+                for (let i = 1; i <= steps; i++) {
+                    const rr = len * i / steps, perp = (Math.random() - .5) * 50;
+                    const x = RCx + Math.cos(a) * rr + Math.cos(a + Math.PI / 2) * perp;
+                    const y = RCy + Math.sin(a) * rr + Math.sin(a + Math.PI / 2) * perp;
+                    d += ` L${x.toFixed(1)},${y.toFixed(1)}`;
+                }
+                const g = gFx.append('g').attr('filter', 'url(#ideia-glow)');
+                g.append('path').attr('d', d).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 6).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('opacity', .85);
+                g.append('path').attr('d', d).attr('fill', 'none').attr('stroke', '#fff').attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('opacity', 1);
+                g.attr('opacity', 1).transition().duration(70).attr('opacity', .4).transition().duration(60).attr('opacity', 1).transition().duration(240).attr('opacity', 0).remove();
+            }
+
+            function frame(now) {
+                if (gen !== window.__ideiaGen) return;
+                const tc = (now - tStart) / 1000;
+                dust.forEach(p => { const cy = (((p.y - p.sp * tc) % 2070) + 2070) % 2070 - 20; p.el.attr('cx', p.x + Math.sin(tc * p.sw + p.ph) * 20).attr('cy', cy).attr('opacity', 0.12 + 0.4 * (0.5 + 0.5 * Math.sin(tc * p.tw + p.ph))); });
+                if (alive) {
+                    const t = (now - t0) / 1000;
+                    gears.forEach(g => g.grp.attr('transform', `translate(${g.x},${g.y}) rotate(${(g.rot0 + g.w * t) * 180 / Math.PI})`));
+                    if (now - lastBolt > 800 && Math.random() < 0.5) { lastBolt = now; bolt(); if (Math.random() < 0.4) bolt(); }
+                    if (now - lastRing > 1300) { lastRing = now; ring(); }
+                }
+                window.__ideiaRaf = requestAnimationFrame(frame);
+            }
+            tStart = performance.now();
+            window.__ideiaRaf = requestAnimationFrame(frame);
+        }
+
+        /* =====================================================================
+           SLIDE 6 — RESPONSIVO (mesma metáfora em 4 formatos)
+           Loop: o emissor central manda partículas pros 4 quadros; os bulbos piscam em uníssono.
+           ===================================================================== */
+        function animateFormatos() {
+            const svg = d3.select('#formatos-svg'); svg.selectAll('*').remove();
+            const myGen = nextGen('__fmtGen'); clearTimeout(window.__fmtT);
+            addGlow(svg, 'fmt-glow', 7);
+            // VERTICAL: a ideia desce do emissor (topo) para os 4 formatos empilhados
+            const ex = 640, ey = 180;
+            const frames = [
+                { cy: 510, w: 360, h: 203, lbl: '16:9', sub: 'a tela' },
+                { cy: 890, w: 230, h: 230, lbl: '1:1', sub: 'o feed' },
+                { cy: 1290, w: 175, h: 263, lbl: 'terços', sub: 'o destaque' },
+                { cy: 1710, w: 150, h: 250, lbl: '9:16', sub: 'o celular' },
+            ];
+            frames.forEach(f => { f.x = ex; f.y = f.cy - f.h / 2; f.bulbX = ex; f.bulbY = f.cy; });
+            // trilho vertical ligando o emissor aos quadros
+            svg.append('line').attr('x1', ex).attr('y1', ey).attr('x2', ex).attr('y2', frames[frames.length - 1].cy)
+                .attr('stroke', ACCENT).attr('stroke-opacity', .18).attr('stroke-width', 2).attr('stroke-dasharray', '4,10');
+            // emissor
+            const emitter = svg.append('circle').attr('cx', ex).attr('cy', ey).attr('r', 22).attr('fill', HOT).attr('filter', 'url(#fmt-glow)');
+            svg.append('text').attr('x', ex).attr('y', ey - 44).attr('text-anchor', 'middle').attr('fill', 'rgba(255,255,255,.55)').attr('font-size', 34).attr('font-style', 'italic').text('uma ideia');
+            // quadros
+            const bulbs = [];
+            frames.forEach(f => {
+                svg.append('rect').attr('x', f.x - f.w / 2).attr('y', f.y).attr('width', f.w).attr('height', f.h).attr('rx', 12)
+                    .attr('fill', 'rgba(255,144,77,.04)').attr('stroke', ACCENT).attr('stroke-opacity', .45).attr('stroke-width', 2.5);
+                const lblX = f.x + f.w / 2 + 34;
+                svg.append('text').attr('x', lblX).attr('y', f.cy - 4).attr('text-anchor', 'start').attr('fill', '#fff').attr('font-size', 38).attr('font-weight', 700).text(f.lbl);
+                svg.append('text').attr('x', lblX).attr('y', f.cy + 36).attr('text-anchor', 'start').attr('fill', 'rgba(255,255,255,.5)').attr('font-size', 30).attr('font-style', 'italic').text(f.sub);
+                bulbs.push(svg.append('circle').attr('cx', f.bulbX).attr('cy', f.bulbY).attr('r', 18).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-opacity', .4).attr('stroke-width', 3).attr('filter', 'url(#fmt-glow)'));
+            });
+
+            (function loop() {
+                if (myGen !== window.__fmtGen) return;
+                emitter.transition().duration(300).attr('r', 28).transition().duration(300).attr('r', 22);
+                frames.forEach((f, k) => {
+                    const p = svg.append('circle').attr('cx', ex).attr('cy', ey).attr('r', 8).attr('fill', HOT).attr('filter', 'url(#fmt-glow)');
+                    p.transition().delay(k * 120).duration(1000).ease(d3.easeQuadInOut).attr('cx', f.bulbX).attr('cy', f.bulbY)
+                        .on('end', function () {
+                            d3.select(this).remove();
+                            if (myGen !== window.__fmtGen) return;
+                            bulbs[k].transition().duration(250).attr('stroke', HOT).attr('stroke-opacity', 1).attr('fill', 'rgba(255,144,77,.25)')
+                                .transition().duration(700).attr('stroke', ACCENT).attr('stroke-opacity', .4).attr('fill', 'none');
+                        });
+                });
+                window.__fmtT = setTimeout(loop, 1900);
+            })();
+        }
+
+        /* =====================================================================
+           SLIDE 7 — TRÊS PILARES (M, I, R orbitando o centro)
+           Loop: os três orbitam continuamente e pulsam em sequência.
+           ===================================================================== */
+        function animatePilares() {
+            const svg = d3.select('#pilares-svg'); svg.selectAll('*').remove();
+            const myGen = nextGen('__pilGen'); if (window.__pilRaf) cancelAnimationFrame(window.__pilRaf);
+            addGlow(svg, 'pil-glow', 12);
+            const cx = 640, cy = 340, Rorb = 330;
+            svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', Rorb).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-opacity', .15).attr('stroke-width', 2).attr('stroke-dasharray', '4,10');
+            svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 45).attr('fill', HOT).attr('filter', 'url(#pil-glow)');
+            svg.append('text').attr('x', cx).attr('y', cy + 78).attr('text-anchor', 'middle').attr('fill', '#fff').attr('font-size', 45).attr('font-weight', 900).attr('letter-spacing', 5).text('MIRA');
+            const pillars = [{ L: 'Metáforas', t: 'que ensinam' }, { L: 'Inteligência', t: 'que se adapta' }, { L: 'Responsivo', t: 'que se molda' }, { L: 'Animação', t: 'que viaja' }];
+            const nodes = pillars.map((p, i) => {
+                const g = svg.append('g');
+                g.append('circle').attr('r', 45).attr('fill', 'rgba(255,144,77,.12)').attr('stroke', ACCENT).attr('stroke-width', 3.75).attr('filter', 'url(#pil-glow)');
+                g.append('circle').attr('r', 10).attr('fill', HOT);
+                g.append('text').attr('text-anchor', 'middle').attr('y', 75).attr('fill', '#fff').attr('font-size', 36).attr('font-weight', 700).text(p.L);
+                g.append('text').attr('text-anchor', 'middle').attr('y', 107).attr('fill', 'rgba(255,255,255,.5)').attr('font-size', 30).attr('font-style', 'italic').text(p.t);
+                return g;
+            });
+            const t0 = performance.now();
+            (function spin(now) {
+                if (myGen !== window.__pilGen) return;
+                const t = ((now || performance.now()) - t0) / 1000;
+                nodes.forEach((g, i) => {
+                    const a = t * 0.5 + i / pillars.length * Math.PI * 2;
+                    const x = cx + Math.cos(a) * Rorb, y = cy + Math.sin(a) * Rorb;
+                    const s = 1 + 0.12 * Math.sin(t * 2 - i * 2);
+                    g.attr('transform', `translate(${x},${y}) scale(${s})`);
+                });
+                window.__pilRaf = requestAnimationFrame(spin);
+            })();
+        }
+
+        /* =====================================================================
+           SLIDE 8 — DE GRAÇA (núcleo que irradia, aberto)
+           Loop: o núcleo emite anéis de luz pra fora continuamente, sem parar.
+           ===================================================================== */
+        function animateGratis() {
+            const svg = d3.select('#gratis-svg'); svg.selectAll('*').remove();
+            const myGen = nextGen('__gratisGen'); clearTimeout(window.__gratisT);
+            addGlow(svg, 'gratis-glow', 9);
+            const cx = 640, cy = 340;
+            svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 34).attr('fill', HOT).attr('filter', 'url(#gratis-glow)');
+            svg.append('text').attr('x', cx).attr('y', cy + 130).attr('text-anchor', 'middle').attr('fill', ACCENT).attr('font-size', 40).attr('font-weight', 900).attr('letter-spacing', 8).text('GRÁTIS');
+            svg.append('text').attr('x', cx).attr('y', cy + 174).attr('text-anchor', 'middle').attr('fill', 'rgba(255,255,255,.4)').attr('font-size', 30).attr('letter-spacing', 3).text('OPEN SOURCE · LIVRE');
+            // núcleo pulsa
+            const core = svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 34).attr('fill', 'none').attr('stroke', HOT).attr('stroke-width', 0);
+            (function emit() {
+                if (myGen !== window.__gratisGen) return;
+                svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 34).attr('fill', 'none').attr('stroke', ACCENT).attr('stroke-width', 3).attr('stroke-opacity', .8)
+                    .transition().duration(2200).ease(d3.easeQuadOut).attr('r', 260).attr('stroke-opacity', 0).attr('stroke-width', 1).remove();
+                // raios curtos girando para fora
+                const a = Math.random() * Math.PI * 2;
+                svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 6).attr('fill', ACCENT)
+                    .transition().duration(1600).ease(d3.easeQuadOut).attr('cx', cx + Math.cos(a) * 300).attr('cy', cy + Math.sin(a) * 300).attr('opacity', 0).remove();
+                window.__gratisT = setTimeout(emit, 600);
+            })();
+        }
+    </script>
+
+    <!-- ===================== SCRIPT: CÉREBRO 3D (slide I) ===================== -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        const wrap = document.getElementById('cerebro-canvas');
+        if (wrap) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+            camera.position.set(0, 0.3, 3.6);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+            wrap.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(2.5, 3, 4); scene.add(key);
+            const rim = new THREE.DirectionalLight(0xff7733, 2.2); rim.position.set(-4, -1.5, -3); scene.add(rim);
+
+            const composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.9, 0.6, 0.6);
+            composer.addPass(bloom);
+
+            const brain = new THREE.Group(); brain.rotation.x = 0.12; scene.add(brain);
+            const msg = document.createElement('p');
+            msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);text-align:center;padding:20px;';
+            msg.textContent = 'Carregando cérebro 3D...';
+            wrap.appendChild(msg);
+
+            new GLTFLoader().load('assets/brain.glb', (gltf) => {
+                const model = gltf.scene;
+                const box = new THREE.Box3().setFromObject(model);
+                const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+                model.position.sub(c); brain.add(model);
+                brain.scale.setScalar(2.5 / Math.max(s.x, s.y, s.z));
+                msg.remove();
+            }, undefined, () => {
+                msg.innerHTML = 'O cérebro 3D não carrega via <b>file://</b>.<br>Rode <code style="color:#FF904D">python3 -m http.server</code> e abra por <b>http://localhost</b>.';
+            });
+
+            // encaixes (harnesses) orbitando + linhas pulsando
+            const nodes = [], lines = [];
+            const NODE = 5;
+            for (let i = 0; i < NODE; i++) {
+                const a = i / NODE * Math.PI * 2;
+                const geo = new THREE.IcosahedronGeometry(0.12, 0);
+                const mat = new THREE.MeshStandardMaterial({ color: 0xff904d, emissive: 0xff5a1f, emissiveIntensity: 0.4, metalness: .3, roughness: .4 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.userData.a = a; mesh.userData.r = 1.9;
+                scene.add(mesh); nodes.push(mesh);
+                const lgeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                const lmat = new THREE.LineBasicMaterial({ color: 0xff904d, transparent: true, opacity: 0.25 });
+                const line = new THREE.Line(lgeo, lmat); scene.add(line); lines.push(line);
+            }
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.dampingFactor = .06; controls.enablePan = false;
+            controls.minDistance = 2.2; controls.maxDistance = 6; controls.enableZoom = false;
+            controls.autoRotate = true; controls.autoRotateSpeed = 1.6;
+            let resume; controls.addEventListener('start', () => { controls.autoRotate = false; clearTimeout(resume); });
+            controls.addEventListener('end', () => { resume = setTimeout(() => controls.autoRotate = true, 2500); });
+
+            function resize() {
+                const r = wrap.getBoundingClientRect(); const w = Math.max(1, r.width), h = Math.max(1, r.height);
+                renderer.setSize(w, h); composer.setSize(w, h); bloom.setSize(w, h);
+                camera.aspect = w / h; camera.updateProjectionMatrix();
+            }
+            new ResizeObserver(resize).observe(wrap); resize();
+
+            let raf = null, t0 = performance.now();
+            function loop(now) {
+                raf = requestAnimationFrame(loop);
+                const t = (now - t0) / 1000;
+                brain.rotation.y += 0.006;
+                nodes.forEach((m, i) => {
+                    const a = m.userData.a + t * 0.4;
+                    m.position.set(Math.cos(a) * m.userData.r, Math.sin(a * 1.3) * 0.5, Math.sin(a) * m.userData.r);
+                    const pulse = 0.3 + 0.6 * Math.max(0, Math.sin(t * 1.5 - i));
+                    m.material.emissiveIntensity = pulse;
+                    const pos = lines[i].geometry.attributes.position;
+                    pos.setXYZ(0, 0, 0, 0); pos.setXYZ(1, m.position.x, m.position.y, m.position.z); pos.needsUpdate = true;
+                    lines[i].material.opacity = 0.12 + pulse * 0.4;
+                });
+                controls.update();
+                composer.render();
+            }
+            const vis = new IntersectionObserver(es => es.forEach(e => {
+                if (e.isIntersecting && raf === null) { t0 = performance.now(); loop(performance.now()); }
+                else if (!e.isIntersecting && raf !== null) { cancelAnimationFrame(raf); raf = null; }
+            }), { threshold: 0.1 });
+            vis.observe(wrap);
+        }
+    </script>
+</body>
+
+</html>

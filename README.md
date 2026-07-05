@@ -94,6 +94,10 @@ Every deck also ships with two live-presentation tools, both vanilla and `file:/
 
 `npx mira-animator edit <deck>` retrofits all three authoring tools (edit, draw, tactics) into an older deck.
 
+### Presenting with your phone (mira-remote-control)
+
+The `mira-remote-control` agent turns any deck into a phone-controlled presentation over the local network, with no app, no login and no internet (the phone's own hotspot works). It copies a zero-dependency Node server and a mirroring shell into the deck's `mira/` folder, plus two double-click launchers (`remote-control-windows.bat` / `remote-control-apple.command`) in the deck root. Double-click the launcher, a QR appears in the corner of the deck, scan it with the phone: the QR disappears and the phone becomes mirror, remote control (next/prev) and pen: telestrator strokes land on the same spot of the slide on every screen, because every device renders the deck on a fixed 1280×720 stage scaled to fit. Roles are assigned by IP: the notebook is the stage, the first external device is the control, everyone else mirrors. Press **`C`** on the notebook to show the QR again. Without the launcher the deck still opens 100% via `file://`.
+
 ---
 
 ## Agent pipeline

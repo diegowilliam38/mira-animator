@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><style>html,body{margin:0;padding:0;background:#888}iframe{border:0;width:390px;height:844px;display:block}
+#probe{position:fixed;top:0;left:0;z-index:99999;background:#fff;color:#000;font:12px monospace;padding:4px;white-space:pre}</style></head>
+<body>
+<iframe id="f"></iframe>
+<div id="probe"></div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  const showProbe = params.get('probe') === '1';
+  document.getElementById('f').src = params.get('src') || 'mobile.html';
+  if (!showProbe) document.getElementById('probe').style.display = 'none';
+  document.getElementById('f').addEventListener('load', () => {
+    setTimeout(() => {
+      const win = document.getElementById('f').contentWindow;
+      const doc = document.getElementById('f').contentDocument;
+      if (id) {
+        const el = doc.getElementById(id);
+        if (el) (el.closest('.fullscreen-wrapper') || el).scrollIntoView({ behavior: 'instant', block: 'start' });
+      }
+      const cs = (sel, prop) => { const e = doc.querySelector(sel); return e ? win.getComputedStyle(e)[prop] : 'N/A'; };
+      const fmtw = win.getComputedStyle(doc.documentElement).getPropertyValue('--fmt-w');
+      document.getElementById('probe').textContent =
+        'innerW=' + win.innerWidth + ' innerH=' + win.innerHeight +
+        '\n--fmt-w=' + fmtw +
+        '\nheader w=' + cs('body>header','width') + ' h1 fs=' + cs('body>header h1','fontSize') +
+        '\nmain w=' + cs('body>main','width') +
+        '\nwrapper w=' + cs('.fullscreen-wrapper','width') +
+        '\nh2 fs=' + cs('.fullscreen-wrapper h2','fontSize');
+    }, 2500);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mira · Apresentação</title>
+  <meta name="description" content="Mira — transforme projetos, livros e PDFs em apresentações HTML animadas, construídas por um time de agentes de IA." />
+  <meta property="og:title" content="Mira · Apresentação animada" />
+  <meta property="og:description" content="Metáforas Inteligentes Responsivas e Animadas. Apresentação interativa do Mira." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#FF904D" />
+  <link rel="icon" href="logo.png" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0f0f11; overflow: hidden; }
+    #deck {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      border: 0;
+      display: block;
+    }
+    /* Fallback visual enquanto o deck carrega */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FF904D;
+      font-family: system-ui, -apple-system, sans-serif;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-size: 14px;
+      background: #0f0f11;
+      transition: opacity .4s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="loading">Mira</div>
+  <iframe id="deck" title="Apresentação Mira" allowfullscreen></iframe>
+
+  <script>
+    // Escolhe o deck pela orientação: retrato (celular em pé) -> 9:16, senão -> 16:9.
+    var portrait = window.matchMedia('(orientation: portrait)');
+
+    function deckFor(isPortrait) {
+      return isPortrait ? 'mobile.html' : 'desktop.html';
+    }
+
+    var deck = document.getElementById('deck');
+    var loading = document.getElementById('loading');
+    var current = null;
+
+    function load(isPortrait) {
+      var next = deckFor(isPortrait);
+      if (next === current) return;      // já está no deck certo, não recarrega
+      current = next;
+      loading.classList.remove('hidden');
+      deck.src = next;
+    }
+
+    deck.addEventListener('load', function () {
+      loading.classList.add('hidden');
+    });
+
+    // Carga inicial
+    load(portrait.matches);
+
+    // Troca ao vivo quando o aparelho gira ou a janela cruza a proporção
+    function onChange(e) { load(e.matches); }
+    if (portrait.addEventListener) {
+      portrait.addEventListener('change', onChange);
+    } else if (portrait.addListener) {
+      portrait.addListener(onChange);  // Safari antigo
+    }
+  </script>
+</body>
+</html>
