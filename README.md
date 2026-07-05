@@ -90,7 +90,7 @@ Saving works two ways: over `file://` it uses the browser's file picker (Chrome/
 Every deck also ships with two live-presentation tools, both vanilla and `file://`-friendly:
 
 - **`mira-draw.js`** — press **`P`** (or `?draw=1`): a telestrator to draw over the current slide — pen, highlighter, line, arrow, shapes, text and eraser, with colors, widths and undo. The slide's animation keeps running underneath.
-- **`mira-tactics.js`** — press **`T`** (or `?tactics=1`): a tactics board with draggable pieces (the `mira-tactics` agent builds full tactical plays on it).
+- **`mira-tactics.js`** — press **`T`** (or `?tactics=1`): a tactics board overlay with draggable pieces. For a full dedicated tactics-table slide (animated chibi players, real lineups, recorded plays with replay), the `mira-tactics` agent generates one from the bundled engine at `mira-templates/decks/mesa-tatica/index.html`.
 
 `npx mira-animator edit <deck>` retrofits all three authoring tools (edit, draw, tactics) into an older deck.
 
