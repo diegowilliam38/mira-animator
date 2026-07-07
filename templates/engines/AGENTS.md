@@ -11,6 +11,10 @@ Esta pasta é uma instalação do **Mira**: agentes e templates para criar apres
 5. **Idioma**: siga `_shared/idioma.md` — todo texto visível em português brasileiro com acentuação 100% correta.
 6. **Templates**: blueprints de slides em `mira-templates/slides/`, decks completos em `mira-templates/decks/`, cards atômicos em `mira-builder/templates/` (dentro das skills).
 
+## Início da sessão
+
+No PRIMEIRO turno da sessão, rode `node .mira/bin/version-notice.js` uma vez (é instantâneo, não bloqueia). Se ele imprimir uma linha `[MIRA] Atualização disponível...`, siga a instrução: avise o usuário em uma linha e pergunte se ele quer que você atualize com `npx mira-animator update`. Só atualize se ele confirmar; se recusar, não insista.
+
 ## Estrutura
 
 ```

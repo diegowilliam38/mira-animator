@@ -2,6 +2,10 @@
 
 Instruções do projeto MIRA. Siga à risca.
 
+## Estilo de resposta
+
+Seja sempre breve. Vá direto ao ponto, sem preâmbulo nem resumos longos.
+
 ## Estrutura de pastas de um deck (diretiva)
 
 A raiz de um deck contém SOMENTE `index.html` e os launchers (`remote-control-windows.bat` / `remote-control-apple.command`, quando o remote estiver instalado). Todo o resto tem lugar fixo:

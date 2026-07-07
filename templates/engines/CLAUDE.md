@@ -12,6 +12,10 @@ Esta pasta é uma instalação do **Mira**: agentes e templates para criar apres
 6. **Templates**: blueprints de slides em `mira-templates/slides/`, decks completos em `mira-templates/decks/`, cards atômicos em `mira-builder/templates/` (dentro das skills).
 7. **Offline / firewall**: por padrão o deck carrega libs por CDN (Tailwind, AOS, Lucide, D3, fonte Inter). Se o usuário disser que o slide é bloqueado pelo firewall da empresa ou precisa rodar sem internet, use `/mira-offline` para deixar o deck self-contained (libs locais em `assets/vendor/`, abre por `file://`).
 
+## Início da sessão
+
+Um hook `SessionStart` já roda `node .mira/bin/version-notice.js` automaticamente. Se aparecer uma linha `[MIRA] Atualização disponível...` no contexto, siga a instrução dela: avise o usuário em uma linha e pergunte se ele quer que você atualize com `npx mira-animator update`. Só atualize se ele confirmar. (Se o hook estiver desligado, rode o script você mesmo no primeiro turno.)
+
 ## Estrutura
 
 ```
