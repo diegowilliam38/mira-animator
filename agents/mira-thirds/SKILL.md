@@ -45,6 +45,46 @@ Num slide de conteúdo aparecem **duas coisas nos 2/3 da esquerda**: o **título
 
 O essencial é que **a animação preencha a maior parte da área da animação (o box laranja dos 2/3)**. Preencher bem o box vale mais que a perfeição do reflow por metáfora. **Nunca** é aceitável a animação ficar como faixa fina com área vazia (ou preta) em volta. Antes de entregar, olhe cada slide e pergunte: **a animação domina os 2/3?** Se sobra muita área vazia, refaça.
 
+## ÁREA SEGURA: 50px medidos do BOX dos 2/3, com TUDO dentro (título E animação) (INEGOCIÁVEL)
+
+**Esta margem é OBRIGATÓRIA do formato em terços** (ordem do usuário): todo deck gerado por esta skill leva a área segura de 50px no box dos 2/3, e **a animação tem que sempre CHEGAR na margem** (fit-to-área-segura, item C), nunca parar antes dela. Validado com o usuário nas imagens de referência (`_reversa_sdd/responsividade/margem_ref/`). A área segura pertence ao **box dos 2/3 de altura cheia** (o bloco do slide), NÃO ao palco da animação:
+
+**(A) Margem de 50px medida das bordas do box dos 2/3, e tudo dentro dela.** O bloco do slide (`body > section:has(.glass-card) > div`) cobre os 2/3 de altura cheia e leva `padding: 50px; box-sizing: border-box;` (já no bloco canônico). **Título e animação vivem DENTRO da área segura**: o título é a primeira coisa dentro dela (nunca colado na borda do quadro) e a animação preenche todo o resto, sem vazar para o 1/3 cinza (a margem de 50px também vale na divisa com a coluna cinza). ERRADO (erro clássico): pôr os 50px como padding do `.anim-stage`, o que deixa o título fora da margem e a área segura abraçando só a animação. CERTO: a margem abraça o box dos 2/3 inteiro.
+
+**(B) O palco ocupa TODO o resto da área segura + viewBox casado em runtime.** No canônico, o bloco do slide, o `.glass-card` e o `.anim-stage` formam uma cadeia flex (`flex: 1 1 auto; min-height: 0`): o palco estica da base do título até a margem de baixo, na largura toda da área segura, sem `aspect-ratio` fixo. Como a altura do título varia (1 ou 2 linhas), a razão do palco não é fixa: case o `viewBox` à razão REAL do palco em runtime, no início de cada build/replay (o `H` autorado, `H = W * 1080/1280`, é só valor inicial):
+
+```js
+// F = FMT.<slug> (objeto {W, H} usado pela animação); svg = seleção d3 do <svg>
+function casarPalco() {
+  const r = svg.node().closest('.anim-stage').getBoundingClientRect();
+  if (r.width > 0 && r.height > 0) F.H = Math.round(F.W * r.height / r.width);
+  svg.attr('viewBox', `0 0 ${F.W} ${F.H}`);
+}
+// chame casarPalco() na 1ª linha do build/replay; re-case em resize e document.fonts.ready
+// (o fitToArea a cada tick absorve a mudança sem precisar rebuildar)
+```
+
+**(C) A animação PREENCHE até a margem (fit-to-área-segura).** Não basta caber: a animação tem que **ocupar todo o palco, encostando na margem sem cruzar**. ERRADO: animação espremida no meio com vazio em volta. CERTO: conteúdo escalado até a margem. Envolva TODO o desenho num grupo `<g>` e, a cada quadro, escale/translade esse grupo para a bounding box dele preencher `[EDGE, W-EDGE] × [EDGE, H-EDGE]` (EDGE ≈ 14, só a folga de stroke/glow; a margem de 50px vem do padding do BLOCO dos 2/3):
+
+```js
+const EDGE = 14;
+function fitToArea(g) {                 // g = <g> que envolve TODO o desenho
+  g.attr('transform', null);
+  const b = g.node().getBBox();
+  if (!b.width || !b.height) return;
+  const tw = F.W - 2 * EDGE, th = F.H - 2 * EDGE;
+  const s = Math.min(tw / b.width, th / b.height);
+  const tx = EDGE + (tw - b.width * s) / 2 - b.x * s;
+  const ty = EDGE + (th - b.height * s) / 2 - b.y * s;
+  g.attr('transform', `translate(${tx},${ty}) scale(${s})`);
+}
+// no 'tick' da animação (ou depois de compor o quadro): fitToArea(root)
+```
+
+Vale para QUALQUER metáfora (grafo, fluxo, orbital, partículas): componha livre e deixe o fit preencher. O fit **substitui** o antigo clamp de margem e garante preenchimento determinístico. O 1/3 cinza continua intocado (o fit escala só o conteúdo do palco, que já vive nos 2/3).
+
+**(D) A margem é TRANSPARENTE (ordem do usuário).** A área segura existe como espaço vazio (o padding de 50px do bloco dos 2/3), **sem nenhuma pintura**: nada de faixa vermelha, moldura, borda ou CSS/JS de debug no arquivo entregue. Se precisar conferir a margem durante o trabalho, meça no DevTools ou pinte temporariamente e REMOVA antes de entregar. **Validação (a olho):** título e animação inteiros dentro dos 50px do box dos 2/3 (altura cheia, inclusive na divisa com o 1/3 cinza), e a animação encostando na margem (não parando antes). Se o título estiver colado na borda do quadro ou a margem abraçar só a animação, a implementação está ERRADA.
+
 ## O 1/3 cinza é sagrado
 
 Nada de título, pílula ou elemento da animação invade o terço reservado. Ele fica **cinza #333, limpo**, para sobreposição na edição. É a diferença central em relação à versão antiga desta skill, que deixava o terço com a cor do slide.
@@ -84,18 +124,18 @@ Se o usuário não disser sobre qual arquivo aplicar, use o `index.html` (16:9).
 Via CSS no bloco injetado:
 
 - **Encosta o conteúdo no lado da animação:** `body > section { align-items: var(--thirds-align) }` (`flex-start` = animação à esquerda, cinza à direita, padrão).
-- **Bloco do slide em 2/3:** `body > section > div { width: 66.667%; max-width: 66.667% }`.
+- **Bloco do slide = box dos 2/3 de ALTURA CHEIA com a área segura:** `body > section > div { width: 66.667%; max-width: 66.667% }`, e nos slides de conteúdo o bloco vira coluna flex de altura cheia (`flex: 1 1 auto; min-height: 0`) com `padding: 50px` (a área segura; a seção zera o padding próprio).
 - **Pinta o 1/3 de cinza:** um `linear-gradient` na `section` deixa os 2/3 no fundo do tema e o 1/3 em #333, de altura cheia, independente do conteúdo. Isso garante o terço cinza sólido do mockup.
 
 ### 2. Composição enxuta nos 2/3 (só título + animação)
 
 Escopado com `:has(.glass-card)`, como no vertical: oculta subtítulo, header e base do card, e zera o chrome do `.glass-card`, para a animação preencher o box dos 2/3. Título colado no topo com auto-ajuste para no máximo 2 linhas.
 
-### 3. Canvas casado ao box dos 2/3 + reflow por metáfora
+### 3. Palco = todo o resto da área segura + viewBox casado em runtime + reflow
 
-- **Palco casado:** `.anim-stage { height: auto !important; aspect-ratio: 1280 / 1080 !important }` (box dos 2/3 sobre um quadro 16:9: 2/3 de 1920 = 1280, por 1080 de altura, quase-quadrado). Sobre 1:1 ou 9:16, case o `aspect-ratio` a "2/3 da largura do quadro por altura cheia".
-- **viewBox casando:** para cada `<svg id="sv-...">`, mantenha `minX`, `minY`, `W` e troque a altura por **`H = W * 1080 / 1280`** (mesmo aspecto do box). `preserveAspectRatio="xMidYMid meet"`; sem letterbox nem distorção.
-  - Exemplo: `viewBox="0 0 960 540"` vira `viewBox="0 0 960 810"` (960 * 1080/1280 = 810).
+- **Palco esticado (cadeia flex):** bloco do slide, `.glass-card` e `.anim-stage` com `flex: 1 1 auto; min-height: 0` (já no canônico); o `.anim-stage` fica SEM `aspect-ratio` fixo e SEM padding, ocupando da base do título até a margem de baixo, na largura toda da área segura.
+- **viewBox casando:** para cada `<svg id="sv-...">`, autore a altura inicial como **`H = W * 1080 / 1280`** (mantendo `minX`, `minY`, `W`) e case à razão real do palco em runtime com `casarPalco` (seção da ÁREA SEGURA). `preserveAspectRatio="xMidYMid meet"`; casado em runtime, sem letterbox nem distorção.
+  - Exemplo: `viewBox="0 0 960 540"` nasce `viewBox="0 0 960 810"` e o `casarPalco` ajusta o `H` ao palco medido.
 - **Reflow por metáfora** para preencher o box (CRITÉRIO Nº 1), conforme o playbook abaixo. Loop e generation counter intactos.
 
 ## Auto-ajuste de título (script injetado)
@@ -177,15 +217,21 @@ O objetivo é sempre o CRITÉRIO Nº 1: preencher a maior parte do box dos 2/3.
     width: var(--thirds-width) !important;
     max-width: var(--thirds-width) !important;
   }
+  /* AREA SEGURA: o box dos 2/3 cobre a ALTURA CHEIA e leva 50px de margem;
+     titulo e animacao vivem DENTRO (inclusive na divisa com o 1/3 cinza). */
+  body > section:has(.glass-card) { padding: 0 !important; }
+  body > section:has(.glass-card) > div { flex: 1 1 auto !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; padding: 50px !important; box-sizing: border-box !important; }
+  body > section:has(.glass-card) .glass-card { flex: 1 1 auto !important; min-height: 0 !important; display: flex !important; flex-direction: column !important; }
+  /* Palco = TODO o resto da area segura (sem aspect-ratio fixo; o viewBox e casado
+     em runtime pelo casarPalco). Sem padding: a margem de 50px e do BLOCO dos 2/3. */
+  .anim-stage { flex: 1 1 auto !important; min-height: 0 !important; height: auto !important; width: 100% !important; aspect-ratio: auto !important; max-width: none !important; margin-inline: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
   /* Composição enxuta nos 2/3: só título + animação (escopo: slides com .glass-card). */
   body > section h2 { font-size: clamp(28px, 4vh, 44px) !important; line-height: 1.1 !important; }
   body > section:has(.glass-card) .text-center > p { display: none !important; }            /* subtitulo */
-  body > section:has(.glass-card) .text-center { margin-bottom: 8px !important; }
+  body > section:has(.glass-card) .text-center { margin: 0 0 14px 0 !important; padding: 0 !important; flex: 0 0 auto !important; }
   body > section .glass-card { background: none !important; border: none !important; box-shadow: none !important; backdrop-filter: none !important; padding: 0 !important; }
   body > section .glass-card > div:first-child,                                              /* header do card */
   body > section .glass-card > div:last-child { display: none !important; }                  /* base (pilulas) */
-  /* Canvas casado ao box dos 2/3 (2/3 de 1920 = 1280, por 1080). viewBox casado (H = W*1080/1280). */
-  .anim-stage { height: auto !important; aspect-ratio: 1280 / 1080 !important; }
 </style>
 ```
 
@@ -211,7 +257,8 @@ O objetivo é sempre o CRITÉRIO Nº 1: preencher a maior parte do box dos 2/3.
 - [ ] **CRITÉRIO Nº 1: a animação preenche a maior parte do box dos 2/3** (nada de faixa fina/preta com sobra).
 - [ ] Coluna 3 (direita) em **cinza #333, 100% limpa**: nenhum título/animação/pílula invade.
 - [ ] Conteúdo nos 2/3 da esquerda: só título + animação (subtítulo, header e base ocultos).
-- [ ] `.anim-stage` casado ao box (`aspect-ratio: 1280 / 1080`) e `viewBox` casado (`H = W*1080/1280`), sem distorção.
+- [ ] **ÁREA SEGURA no BOX dos 2/3: título E animação dentro da margem de 50px, e a animação CHEGANDO na margem.** A margem é transparente: nenhum CSS/JS de debug (faixa vermelha) no arquivo entregue.
+- [ ] Palco esticado (cadeia flex, sem `aspect-ratio` fixo) e `viewBox` casado em runtime (`casarPalco`), sem distorção nem letterbox.
 - [ ] Nenhum título passa de 2 linhas (IIFE de auto-ajuste injetado).
 
 - [ ] Arquivo de origem intacto (byte a byte).
