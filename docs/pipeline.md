@@ -57,6 +57,7 @@ These drop a specific element into a slide.
 | **mira-svg-morph** | Generates a slide where one SVG shape morphs into another in a continuous loop (GSAP + MorphSVGPlugin vendored locally). You pass 2+ `.svg` files; 2 go back and forth, N chain. Inlines the paths with unique ids and runs `convertToPath`. Works from `file://`. |
 | **mira-icon-morph** | The same morph from concepts in words: searches the Iconify API, validates the license (MIT/Apache/CC0/CC-BY), records attribution in `CREDITS.md`, and refuses protected IP. Reuses the render core of `mira-svg-morph`. |
 | **mira-svg-animator** | Animates an SVG you provide: flap, spin, slide, pulse, draw the outline or follow a curve (GSAP transform / DrawSVG / MotionPath, vendored). To move a part it must be a separate element; for a single merged path it splits the part (clip by an axis or edit the path) and removes opaque backgrounds. Works from `file://`. |
+| **mira-animated-typing** | The "prompt typed in zoom" scene: a single line of giant terminal monospace type on a dark background, typed character by character with a Windows-style blinking cursor; when it reaches 100px before the right edge the text slides left with the cursor anchored. Per-span color via the `color=#HEX` tag (the tag never shows). Pure JS/CSS, continuous loop, works from `file://`. |
 
 ## Helper agents
 

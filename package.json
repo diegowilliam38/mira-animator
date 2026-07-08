@@ -1,6 +1,6 @@
 {
   "name": "mira-animator",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "description": "Agentes e templates para criação de slides animados com D3.js em HTML",
   "bin": {
     "mira": "bin/mira.js"
@@ -32,6 +32,7 @@
     "agents/mira-svg-morph",
     "agents/mira-icon-morph",
     "agents/mira-svg-animator",
+    "agents/mira-animated-typing",
     "agents/mira-squared",
     "agents/mira-vertical",
     "agents/mira-thirds",

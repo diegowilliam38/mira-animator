@@ -57,6 +57,7 @@ Estos colocan un elemento específico dentro de un slide.
 | **mira-svg-morph** | Genera un slide donde una forma SVG se transforma en otra en bucle continuo (GSAP + MorphSVGPlugin vendorados localmente). Pasas 2+ archivos `.svg`; 2 van y vuelven, N se encadenan. Incrusta los paths inline con ids únicos y corre `convertToPath`. Funciona desde `file://`. |
 | **mira-icon-morph** | El mismo morph a partir de conceptos en palabras: busca en la API de Iconify, valida la licencia (MIT/Apache/CC0/CC-BY), registra la atribución en `CREDITS.md` y rechaza IP protegida. Reaprovecha el núcleo de render de `mira-svg-morph`. |
 | **mira-svg-animator** | Anima un SVG que provees: batir, girar, deslizar, pulsar, dibujar el contorno o seguir una curva (GSAP transform / DrawSVG / MotionPath, vendorado). Para mover una parte esta debe ser un elemento separado; en un path único fusionado, la skill separa la parte (corte por eje o edición del path) y quita fondos opacos. Funciona desde `file://`. |
+| **mira-animated-typing** | La escena del "prompt tecleado en zoom": una sola línea de fuente mono de terminal gigante sobre fondo oscuro, tecleada carácter a carácter con cursor parpadeante estilo Windows; al llegar a 100px del borde derecho el texto se desliza a la izquierda con el cursor anclado. Color por tramo vía la etiqueta `color=#HEX` (la etiqueta nunca aparece). JS/CSS puro, bucle continuo, funciona desde `file://`. |
 
 ## Agentes de apoyo
 
