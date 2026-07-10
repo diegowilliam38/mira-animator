@@ -192,4 +192,7 @@ npm install
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+**PolyForm Noncommercial 1.0.0** — MIRA é livre e gratuito para uso não-comercial
+(pessoal, educacional, de pesquisa e por organizações sem fins comerciais).
+**Não pode ser comercializado, vendido ou embutido em software comercial/proprietário.**
+Veja o [LICENSE](LICENSE) para os termos completos.
