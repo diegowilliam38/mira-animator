@@ -54,6 +54,12 @@ function safePath(urlPath) {
     return target;
 }
 
+function htmlTarget(urlPath) {
+    let target = safePath(urlPath);
+    if (target && existsSync(target) && statSync(target).isDirectory()) target = join(target, 'index.html');
+    return target;
+}
+
 function send(res, status, body, type) {
     res.writeHead(status, { 'Content-Type': type || 'text/plain; charset=utf-8' });
     res.end(body);
@@ -65,17 +71,28 @@ async function handleSave(req, res) {
     req.on('end', async () => {
         try {
             const { path: p, content } = JSON.parse(raw);
-            const target = safePath(p || '');
+            const target = htmlTarget(p || '/');
             if (!target) return send(res, 400, 'caminho inválido');
             if (!/\.html?$/.test(target)) return send(res, 403, 'só gravo arquivos .html');
             if (!existsSync(target)) return send(res, 404, 'arquivo não existe: ' + p);
             await writeFile(target, content, 'utf8');
             console.log('  salvo:', p);
-            send(res, 200, JSON.stringify({ ok: true }), 'application/json');
+            send(res, 200, JSON.stringify({ ok: true, path: target }), 'application/json');
         } catch (e) {
             send(res, 500, 'erro ao salvar: ' + e.message);
         }
     });
+}
+
+function handleMeta(req, res) {
+    try {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        const target = htmlTarget(url.searchParams.get('path') || '/');
+        if (!target) return send(res, 400, 'caminho inválido');
+        send(res, 200, JSON.stringify({ root, path: target }), 'application/json');
+    } catch (e) {
+        send(res, 400, 'caminho inválido');
+    }
 }
 
 async function handleGet(req, res) {
@@ -98,6 +115,7 @@ const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return send(res, 204, '');
     if (req.method === 'POST' && req.url.split('?')[0] === '/__mira_save') return handleSave(req, res);
+    if (req.method === 'GET' && req.url.split('?')[0] === '/__mira_meta') return handleMeta(req, res);
     if (req.method === 'GET') return handleGet(req, res);
     send(res, 405, 'método não suportado');
 });

@@ -6,15 +6,15 @@
   "doc_language": "Português",
   "answer_mode": "chat",
   "doc_level": "completo",
-  "output_folder": "_reversa_sdd/responsividade",
+  "output_folder": "_reversa_sdd/mira-edit-livre",
   "forward_folder": "_reversa_forward",
   "newproject_progress": {
     "mode": "guiado",
     "stage": "done",
-    "started_at": "2026-07-07T15:22:03Z",
-    "last_checkpoint_at": "2026-07-07T17:17:26Z",
+    "started_at": "2026-07-09T14:19:37Z",
+    "last_checkpoint_at": "2026-07-09T14:55:00Z",
     "completed_stages": ["ideator", "researcher", "drafter", "spec-sdd"],
-    "brief": "Melhorar o processo de responsividade do Mira (/mira-vertical, /mira-squared, /mira-thirds). Feature ALTERA comandos existentes; registrar nas specs o que muda."
+    "brief": "Expandir o modo de edição do MIRA (tecla 'e', hoje só reordena slides) para edição livre estilo Canva: alterar texto, redimensionar, mover, duplicar e rotacionar qualquer elemento (texto, ícone, desenho) via clique + alças."
   },
   "phase": null,
   "completed": [],

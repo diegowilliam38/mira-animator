@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mira - Vídeo de Lançamento</title>
+    <script src="assets/vendor/d3.v7.min.js"></script>
+    <style>
+        /* @MIRA:THEME:START */
+/* Tema NEUTRO e theme-agnóstico do template de animação pura.
+   A cor vive na paleta do bloco JS. Aqui o MIRA é laranja: os slides usam
+   laranja/âmbar/dourado como cor da marca e uma única cor fria (aço) só para
+   representar "material bruto / estático / fonte protegida". Nada de arco-íris. */
+:root {
+    --mira-primary: #FF904D;
+    --mira-bg: #000000;
+    --mira-text: #ffffff;
+    --mira-text-soft: rgba(255, 255, 255, 0.72);
+    --mira-text-softer: rgba(255, 255, 255, 0.50);
+    --mira-accent-2: #FFC766;
+}
+
+body {
+    background: var(--mira-bg);
+    min-height: 100vh;
+    color: var(--mira-text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+        /* @MIRA:THEME:END */
+
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; width: 100%; background: #000; }
+        html { scroll-behavior: smooth; }
+        /* Scroll discreto (padrao Mira): a navegacao e por teclado/botao e o
+           progresso ja aparece na barra do topo; a scrollbar fica quase invisivel. */
+        html { scrollbar-width: thin; scrollbar-color: #2e2e2e #0d0d0d; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; background: #0d0d0d; }
+        ::-webkit-scrollbar-track { background: #0d0d0d; }
+        ::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+        ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+        body { color: #fff; overflow-x: hidden; }
+
+        /* ============================================================
+           TEMPLATE DE ANIMAÇÃO PURA (multi-slide)
+           1. SEM título/subtítulo sobreposto. Cada slide é a animação de
+              tela cheia sobre preto; labels mínimos DENTRO do SVG (parte da
+              metáfora) são ok.
+           2. Cor da marca MIRA = laranja. Frios só com sentido (aço = bruto).
+           3. viewBox 5/10 centrado, slice; conteúdo em (640,360).
+           4. Loop interno perpétuo + anti-vazamento por geração + Replay.
+           ============================================================ */
+        .slide {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+        }
+        .stage {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .replay-btn {
+            position: absolute;
+            bottom: 22px; right: 22px;
+            z-index: 6;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 9999px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            opacity: 0.5;
+        }
+        .replay-btn:hover { opacity: 1; color: #fff; }
+
+        /* Passagem de slides: barra de progresso + botão + teclado */
+        #mira-progress {
+            position: fixed; top: 0; left: 0; height: 3px; width: 0%;
+            background: linear-gradient(90deg, #FF6B2C, #FF904D, #FFC766, #FFB35C);
+            background-size: 200% 100%;
+            animation: mira-shimmer 3s linear infinite;
+            z-index: 9999; transition: width 0.1s linear;
+        }
+        @keyframes mira-shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        #mira-next {
+            position: fixed; bottom: 32px; left: 32px;
+            width: 46px; height: 46px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.2);
+            opacity: 0; transform: translateY(20px);
+            transition: all 0.3s ease; z-index: 9998;
+        }
+        #mira-next.visible { opacity: 0.55; transform: translateY(0); }
+        #mira-next.visible:hover { opacity: 1; transform: translateY(-3px) scale(1.08); }
+        #mira-next svg { transition: transform 0.3s ease; }
+        #mira-next.up svg { transform: rotate(180deg); }
+
+/* @MIRA:RESPONSIVE:START */
+/* Camada de reflow mobile-first: guarda contra overflow horizontal. */
+html, body { max-width: 100%; overflow-x: hidden; }
+img, svg, video, canvas, iframe, table, pre { max-width: 100%; }
+@media (max-width: 640px) {
+  .min-h-screen { min-height: 100dvh !important; height: auto !important; }
+  #mira-next, #next-card {
+    bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+    right: max(1rem, env(safe-area-inset-right)) !important;
+    width: 44px !important; height: 44px !important;
+  }
+}
+/* @MIRA:RESPONSIVE:END */
+</style>
+</head>
+
+<body>
+    <div id="mira-progress"></div>
+    <button id="mira-next" aria-label="Próximo slide">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+
+    <!-- SLIDE 1: A PONTE — conteúdo bruto frio vira slide vivo pela lente do MIRA -->
+    <section class="slide" data-anim="s1">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s1-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s1">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 2: TIME DE AGENTES — linha de montagem que empilha o slide camada a camada -->
+    <section class="slide" data-anim="s2">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s2-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s2">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 3: NADA É ESTÁTICO — a linha morna vira batimento que bate para sempre -->
+    <section class="slide" data-anim="s3">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s3-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s3">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 4: METÁFORAS — a névoa abstrata se condensa numa ideia concreta (lâmpada) -->
+    <section class="slide" data-anim="s4">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s4-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s4">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 5: RESPONSIVAS — a mesma ideia se remonta em 16:9, 1:1 e 9:16 -->
+    <section class="slide" data-anim="s5">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s5-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s5">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 6: FONTES VINCULADAS — o scanner lê o original protegido e gera uma cópia quente -->
+    <section class="slide" data-anim="s6">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s6-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s6">↻ replay</button>
+    </section>
+
+    <!-- SLIDE 7: FINALE — o olho "olha", a íris quente orbita e a assinatura MIRA acende -->
+    <section class="slide" data-anim="s7">
+        <!-- @MIRA:SIZE 5/10 -->
+        <svg class="stage" id="s7-svg" viewBox="155.15 87.27 969.70 545.45" preserveAspectRatio="xMidYMid slice"></svg>
+        <button class="replay-btn" data-replay="s7">↻ replay</button>
+    </section>
+
+    <script>
+        // ===== Paleta do MIRA: laranja é a cor da marca =====
+        // Tons quentes dominam. Uma única cor fria (aço) entra só para representar
+        // "material bruto / estático / fonte protegida". Sem arco-íris.
+        const OR = '#FF904D', DEEP = '#FF6B2C', AM = '#FFC766', GOLD = '#FFB35C', WHITE = '#ffffff';
+        const COLD = '#5E6B82', COLD2 = '#8492ad';
+        const PAL = [OR, AM, GOLD, DEEP];
+        function rgba(hex, a) {
+            const c = hex.replace('#', '');
+            return `rgba(${parseInt(c.substr(0,2),16)},${parseInt(c.substr(2,2),16)},${parseInt(c.substr(4,2),16)},${a})`;
+        }
+
+        // ===== Infraestrutura: gerações + timers (anti-vazamento de loop) =====
+        const ANIM = {};
+        const TIMERS = {};
+        const GEN = {};
+        function stop(key) { (TIMERS[key] || []).forEach(t => t && t.stop && t.stop()); TIMERS[key] = []; }
+        function track(key, t) { (TIMERS[key] = TIMERS[key] || []).push(t); return t; }
+        function play(key) {
+            if (!ANIM[key]) return;
+            GEN[key] = (GEN[key] || 0) + 1;
+            const svg = d3.select('#' + key + '-svg');
+            svg.selectAll('*').interrupt();
+            svg.selectAll('*').remove();
+            stop(key);
+            ANIM[key](svg, GEN[key]);
+        }
+
+        // ===== Helpers compartilhados =====
+        const CENTER = { x: 640, y: 360 };
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+        const smooth = (t) => t * t * (3 - 2 * t);
+        const pick = (i) => PAL[((i % PAL.length) + PAL.length) % PAL.length];
+        function rand(seed) { const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); }
+        function toRGB(hex) { const c = hex.replace('#', ''); return [parseInt(c.substr(0, 2), 16), parseInt(c.substr(2, 2), 16), parseInt(c.substr(4, 2), 16)]; }
+        function mix(h1, h2, t) { const a = toRGB(h1), b = toRGB(h2); return `rgb(${Math.round(lerp(a[0], b[0], t))},${Math.round(lerp(a[1], b[1], t))},${Math.round(lerp(a[2], b[2], t))})`; }
+
+        // ============================================================
+        // SLIDE 1 — A PONTE. Conceito: o MIRA transforma conteúdo que você
+        // já tem em apresentação viva. Metáfora: documentos frios e estáticos
+        // atravessam uma lente quente (o MIRA) e saem como cards que respiram.
+        // Loop: o fluxo de páginas renasce pela lente, sem parar.
+        // ============================================================
+        ANIM.s1 = function (svg, gen) {
+            const cx = CENTER.x, cy = CENTER.y;
+            const docsG = svg.append('g');
+            const lens = svg.append('g');
+            lens.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 74).attr('fill', 'none')
+                .attr('stroke', OR).attr('stroke-width', 4).style('filter', `drop-shadow(0 0 20px ${OR})`);
+            lens.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 56).attr('fill', 'none')
+                .attr('stroke', rgba(AM, 0.6)).attr('stroke-width', 2).attr('stroke-dasharray', '3 7');
+            const pupil = lens.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 20).attr('fill', '#0a0a0a')
+                .attr('stroke', WHITE).attr('stroke-width', 1.6).style('filter', `drop-shadow(0 0 12px ${OR})`);
+
+            let docs = [], seedn = 0;
+            for (let i = 0; i < 4; i++) docs.push({ id: ++seedn, p: i * 0.24, lane: (rand(i) - 0.5) * 96, sp: 0.0023 + rand(i + 2) * 0.0008 });
+            track('s1', d3.interval(() => { if (gen !== GEN.s1) return; if (docs.length < 7) docs.push({ id: ++seedn, p: 0, lane: (rand(seedn) - 0.5) * 96, sp: 0.0023 + rand(seedn + 2) * 0.0008 }); }, 850));
+
+            let last = 0;
+            track('s1', d3.timer(el => {
+                if (gen !== GEN.s1) return;
+                const dt = Math.min(3, (el - last) / 16.67 || 1); last = el;
+                pupil.attr('r', 20 * (1 + Math.sin(el * 0.002) * 0.12));
+                lens.attr('transform', `translate(${cx},${cy}) scale(${1 + Math.sin(el * 0.0016) * 0.03}) translate(${-cx},${-cy})`);
+                docs.forEach(d => d.p += d.sp * dt);
+                docs = docs.filter(d => d.p < 1.08);
+
+                const sel = docsG.selectAll('g.doc').data(docs, d => d.id);
+                const ent = sel.enter().append('g').attr('class', 'doc');
+                ent.append('rect').attr('class', 'card').attr('rx', 8);
+                for (let i = 0; i < 3; i++) ent.append('rect').attr('class', 'ln ln' + i).attr('rx', 2);
+                ent.merge(sel).each(function (d) {
+                    const g = d3.select(this);
+                    const x = lerp(300, 980, d.p);
+                    const warm = clamp((d.p - 0.44) / 0.15, 0, 1);
+                    const alive = clamp((d.p - 0.6) / 0.2, 0, 1);
+                    const breathe = 1 + alive * Math.sin(el * 0.006 + d.id) * 0.06;
+                    const fade = d.p < 0.06 ? d.p / 0.06 : (d.p > 0.9 ? 1 - (d.p - 0.9) / 0.18 : 1);
+                    const w = 72 * breathe, h = 92 * breathe;
+                    g.attr('transform', `translate(${x},${cy + d.lane})`).attr('opacity', clamp(fade, 0, 1));
+                    g.select('.card').attr('x', -w / 2).attr('y', -h / 2).attr('width', w).attr('height', h)
+                        .attr('fill', mix(COLD, OR, warm)).attr('fill-opacity', 0.12 + warm * 0.14)
+                        .attr('stroke', mix(COLD2, OR, warm)).attr('stroke-opacity', 0.5 + warm * 0.4).attr('stroke-width', 1.6)
+                        .style('filter', alive > 0.02 ? `drop-shadow(0 0 ${alive * 16}px ${OR})` : 'none');
+                    g.selectAll('.ln').each(function (_, i) {
+                        const lw = (i === 2 ? 0.55 : 0.78) * w;
+                        d3.select(this).attr('x', -w / 2 + w * 0.14).attr('y', -h / 2 + h * (0.24 + i * 0.22)).attr('width', lw).attr('height', 6 * breathe)
+                            .attr('fill', mix(COLD2, AM, warm)).attr('fill-opacity', 0.7);
+                    });
+                });
+                sel.exit().remove();
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 2 — TIME DE AGENTES. Conceito: um pipeline de agentes lê,
+        // planeja, escreve, monta e anima. Metáfora: linha de montagem. Um
+        // bloco bruto percorre a esteira; cada estação (um agente) acende e
+        // empilha uma camada quente, até sair um slide pronto.
+        // Loop: a esteira nunca para; os blocos são montados sem fim.
+        // ============================================================
+        ANIM.s2 = function (svg, gen) {
+            const beltY = 452, x0 = 320, x1 = 960, sN = 5;
+            const stX = d3.range(sN).map(i => lerp(x0 + 50, x1 - 70, i / (sN - 1)));
+            svg.append('line').attr('x1', x0).attr('y1', beltY + 4).attr('x2', x1).attr('y2', beltY + 4).attr('stroke', rgba(WHITE, 0.1)).attr('stroke-width', 1);
+            const belt = svg.append('line').attr('x1', x0).attr('y1', beltY).attr('x2', x1).attr('y2', beltY)
+                .attr('stroke', rgba(WHITE, 0.22)).attr('stroke-width', 3).attr('stroke-dasharray', '10 12');
+            const stg = svg.append('g');
+            stX.forEach((x) => {
+                stg.append('line').attr('x1', x).attr('y1', beltY).attr('x2', x).attr('y2', beltY - 82).attr('stroke', rgba(WHITE, 0.2)).attr('stroke-width', 2);
+                stg.append('circle').attr('class', 'lamp').attr('cx', x).attr('cy', beltY - 90).attr('r', 7).attr('fill', AM).attr('fill-opacity', 0.18).attr('stroke', AM).attr('stroke-width', 1.4);
+            });
+            const lamps = stg.selectAll('.lamp');
+            const blkG = svg.append('g');
+            const layerCol = [DEEP, OR, GOLD, AM, OR];
+            let blocks = [], bn = 0;
+            blocks.push({ id: ++bn, p: 0 });
+            track('s2', d3.interval(() => { if (gen !== GEN.s2) return; if (blocks.length < 3) blocks.push({ id: ++bn, p: 0 }); }, 1500));
+
+            let last = 0;
+            track('s2', d3.timer(el => {
+                if (gen !== GEN.s2) return;
+                const dt = Math.min(3, (el - last) / 16.67 || 1); last = el;
+                belt.attr('stroke-dashoffset', -(el * 0.06) % 22);
+                blocks.forEach(b => b.p += 0.0016 * dt);
+                blocks = blocks.filter(b => b.p < 1.06);
+
+                lamps.each(function (_, i) {
+                    let lit = 0;
+                    blocks.forEach(b => { const bx = lerp(x0 + 30, x1 - 30, b.p); if (Math.abs(bx - stX[i]) < 26) lit = Math.max(lit, 1 - Math.abs(bx - stX[i]) / 26); });
+                    d3.select(this).attr('r', 7 + lit * 4).attr('fill-opacity', 0.18 + lit * 0.8).style('filter', lit > 0.1 ? `drop-shadow(0 0 ${lit * 12}px ${AM})` : 'none');
+                });
+
+                const w = 56;
+                const bsel = blkG.selectAll('g.blk').data(blocks, d => d.id);
+                const bent = bsel.enter().append('g').attr('class', 'blk');
+                bent.append('rect').attr('class', 'base').attr('rx', 3);
+                for (let k = 0; k < sN; k++) bent.append('rect').attr('class', 'lay').attr('rx', 2);
+                bent.merge(bsel).each(function (b) {
+                    const g = d3.select(this);
+                    const bx = lerp(x0 + 30, x1 - 30, b.p);
+                    const layers = stX.filter(sx => sx <= bx + 2).length;
+                    const done = layers >= sN;
+                    const fade = b.p > 0.92 ? 1 - (b.p - 0.92) / 0.14 : 1;
+                    g.attr('transform', `translate(${bx},0)`).attr('opacity', clamp(fade, 0, 1));
+                    g.select('.base').attr('x', -w / 2).attr('y', beltY - 15).attr('width', w).attr('height', 13)
+                        .attr('fill', rgba(COLD, 0.55)).attr('stroke', rgba(COLD2, 0.8)).attr('stroke-width', 1);
+                    g.selectAll('.lay').each(function (_, k) {
+                        const vis = k < layers;
+                        d3.select(this).attr('x', -w / 2 + 3).attr('y', beltY - 15 - (k + 1) * 11).attr('width', w - 6).attr('height', 9)
+                            .attr('fill', layerCol[k]).attr('opacity', vis ? 0.94 : 0)
+                            .style('filter', vis && done ? `drop-shadow(0 0 8px ${OR})` : 'none');
+                    });
+                });
+                bsel.exit().remove();
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 3 — NADA É ESTÁTICO. Conceito: todo conceito ganha loop
+        // contínuo; slide parado é bug. Metáfora: batimento cardíaco. A linha
+        // morna e reta ganha vida e vira um pulso laranja que bate para sempre.
+        // Loop: a onda de ECG rola perpétua, com anel de pulso a cada batida.
+        // ============================================================
+        ANIM.s3 = function (svg, gen) {
+            const cx = CENTER.x, mid = CENTER.y, x0 = 300, x1 = 980, period = 176, speed = 0.16;
+            svg.append('line').attr('x1', x0).attr('y1', mid).attr('x2', x1).attr('y2', mid).attr('stroke', rgba(WHITE, 0.1)).attr('stroke-width', 1);
+            const wave = svg.append('path').attr('fill', 'none').attr('stroke', OR).attr('stroke-width', 3.4)
+                .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round').style('filter', `drop-shadow(0 0 9px ${OR})`);
+            const dot = svg.append('circle').attr('r', 5).attr('fill', WHITE).style('filter', `drop-shadow(0 0 11px ${OR})`);
+            const ringsG = svg.append('g');
+            function beat(u) {
+                const d = u - period * 0.5;
+                let y = 0;
+                y += Math.exp(-(d * d) / 40) * -74;
+                y += Math.exp(-((d - 10) * (d - 10)) / 18) * 34;
+                y += Math.exp(-((d + 12) * (d + 12)) / 24) * 12;
+                y += Math.sin(u * 0.13) * 2.5;
+                return y;
+            }
+            track('s3', d3.interval(() => {
+                if (gen !== GEN.s3) return;
+                ringsG.append('circle').attr('cx', cx).attr('cy', mid).attr('r', 8).attr('fill', 'none').attr('stroke', OR).attr('stroke-width', 2.5).attr('opacity', 0.7)
+                    .transition().duration(900).ease(d3.easeCubicOut).attr('r', 86).attr('opacity', 0).remove();
+            }, period / speed));
+            track('s3', d3.timer(el => {
+                if (gen !== GEN.s3) return;
+                const intro = clamp(el / 700, 0, 1), shift = el * speed;
+                let dd = '';
+                for (let x = x0; x <= x1; x += 4) {
+                    const u = ((x + shift) % period + period) % period;
+                    dd += (x === x0 ? 'M' : 'L') + x.toFixed(1) + ',' + (mid + beat(u) * intro).toFixed(1);
+                }
+                wave.attr('d', dd);
+                const uu = ((cx + shift) % period + period) % period;
+                dot.attr('cx', cx).attr('cy', mid + beat(uu) * intro);
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 4 — METÁFORAS. Conceito: uma ideia pesada e abstrata é
+        // mostrada como analogia concreta. Metáfora: névoa difusa se condensa
+        // numa lâmpada nítida (a ideia), se desfaz e volta.
+        // Loop: névoa fria → lâmpada quente → névoa, o filamento tremeluzindo.
+        // ============================================================
+        ANIM.s4 = function (svg, gen) {
+            const cx = CENTER.x, cy = 330, N = 104, R = 80;
+            const bulb = [];
+            const glassN = Math.round(N * 0.72), baseN = N - glassN;
+            for (let i = 0; i < glassN; i++) { const a = (i / glassN) * Math.PI * 2; bulb.push({ x: cx + Math.cos(a) * R, y: (cy - 6) + Math.sin(a) * R }); }
+            const segW = [46, 40, 34], baseY0 = cy - 6 + R + 6;
+            for (let i = 0; i < baseN; i++) { const seg = i % 3, w = segW[seg], u = (Math.floor(i / 3) % 4) / 3; bulb.push({ x: cx - w / 2 + w * u, y: baseY0 + seg * 12 }); }
+            const scatter = d3.range(N).map(i => ({ x: cx + (rand(i) - 0.5) * 540, y: cy + (rand(i + 13) - 0.5) * 440 }));
+
+            const lines = svg.append('g').selectAll('line').data(d3.range(glassN)).join('line').attr('stroke', OR).attr('stroke-width', 1).attr('stroke-opacity', 0);
+            const filament = svg.append('path').attr('d', `M${cx - 16},${cy - 6} L${cx - 6},${cy - 22} L${cx + 5},${cy + 4} L${cx + 15},${cy - 16}`)
+                .attr('fill', 'none').attr('stroke', AM).attr('stroke-width', 2.4).attr('stroke-linecap', 'round').attr('opacity', 0).style('filter', `drop-shadow(0 0 8px ${AM})`);
+            const dots = svg.append('g').selectAll('circle').data(d3.range(N)).join('circle').attr('r', 2).attr('fill', COLD2);
+
+            const CYCLE = 3000;
+            track('s4', d3.timer(el => {
+                if (gen !== GEN.s4) return;
+                const tri = 1 - Math.abs(((el / CYCLE) % 2) - 1);
+                const f = smooth(clamp(tri, 0, 1));
+                const col = mix(COLD2, OR, f), warm = f;
+                dots.attr('cx', (d, i) => lerp(scatter[i].x, bulb[i].x, f)).attr('cy', (d, i) => lerp(scatter[i].y, bulb[i].y, f))
+                    .attr('r', 1.6 + f * 2.6).attr('fill', col).style('filter', warm > 0.5 ? `drop-shadow(0 0 5px ${OR})` : 'none');
+                lines.attr('x1', d => lerp(scatter[d].x, bulb[d].x, f)).attr('y1', d => lerp(scatter[d].y, bulb[d].y, f))
+                    .attr('x2', d => lerp(scatter[(d + 1) % glassN].x, bulb[(d + 1) % glassN].x, f)).attr('y2', d => lerp(scatter[(d + 1) % glassN].y, bulb[(d + 1) % glassN].y, f))
+                    .attr('stroke-opacity', clamp((f - 0.4) / 0.4, 0, 1) * 0.35);
+                filament.attr('opacity', clamp((f - 0.55) / 0.3, 0, 1) * (0.55 + 0.45 * Math.abs(Math.sin(el * 0.02))));
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 5 — RESPONSIVAS. Conceito: uma fonte de verdade, vários
+        // formatos. Metáfora literal-útil: o mesmo quadro se remonta em 16:9,
+        // 1:1 e 9:16 e o conteúdo reflui para caber.
+        // Loop: o quadro morfa entre os três formatos, sem parar.
+        // ============================================================
+        ANIM.s5 = function (svg, gen) {
+            const cx = CENTER.x, cy = CENTER.y;
+            const states = [{ w: 760, h: 428, label: '16:9', c: OR }, { w: 470, h: 470, label: '1:1', c: AM }, { w: 272, h: 484, label: '9:16', c: DEEP }];
+            function layout(w, h) {
+                const x0 = cx - w / 2, y0 = cy - h / 2, pad = Math.min(w, h) * 0.1;
+                const wide = w / h > 1.2, side = Math.min(w, h) * 0.4, lines = [];
+                let thumb;
+                if (wide) {
+                    thumb = { x: x0 + pad, y: cy - side / 2, w: side, h: side };
+                    const lx = thumb.x + thumb.w + pad * 0.8, lw = (x0 + w - pad) - lx;
+                    for (let i = 0; i < 4; i++) lines.push({ x: lx, y: cy - side / 2 + 8 + i * (side / 4), w: lw * (i % 2 ? 0.66 : 1), h: side * 0.11 });
+                } else {
+                    thumb = { x: cx - side / 2, y: y0 + pad + 20, w: side, h: side };
+                    const lx = x0 + pad, lw = w - 2 * pad, avail = (y0 + h - pad) - (thumb.y + thumb.h + pad * 0.6);
+                    for (let i = 0; i < 4; i++) lines.push({ x: lx, y: thumb.y + thumb.h + pad * 0.6 + i * (avail / 4), w: lw * (i % 2 ? 0.7 : 1), h: Math.min(16, avail / 6) });
+                }
+                return { x0, y0, w, h, title: { x: x0 + pad, y: y0 + pad * 0.7, w: w * 0.5, h: Math.min(15, h * 0.045) }, thumb, lines };
+            }
+            const frame = svg.append('rect').attr('rx', 22).attr('fill', 'rgba(255,255,255,0.03)').attr('stroke', OR).attr('stroke-width', 2.5).style('filter', `drop-shadow(0 0 26px ${rgba(OR, 0.35)})`);
+            const title = svg.append('rect').attr('rx', 6);
+            const thumb = svg.append('rect').attr('rx', 12).style('filter', `drop-shadow(0 0 14px ${rgba(OR, 0.4)})`);
+            const lsel = svg.append('g').selectAll('rect').data(d3.range(4)).join('rect').attr('rx', 5).attr('fill', rgba(WHITE, 0.32));
+            const label = svg.append('text').attr('text-anchor', 'middle').style('font-family', 'system-ui, sans-serif').style('font-weight', 700).style('font-size', '26px').style('letter-spacing', '3px');
+
+            let cur = { w: states[0].w, h: states[0].h };
+            const HOLD = 2100;
+            track('s5', d3.timer(el => {
+                if (gen !== GEN.s5) return;
+                const st = states[Math.floor(el / HOLD) % states.length];
+                cur.w = lerp(cur.w, st.w, 0.07); cur.h = lerp(cur.h, st.h, 0.07);
+                const L = layout(cur.w, cur.h);
+                frame.attr('x', L.x0).attr('y', L.y0).attr('width', L.w).attr('height', L.h).attr('stroke', st.c);
+                title.attr('x', L.title.x).attr('y', L.title.y).attr('width', L.title.w).attr('height', L.title.h).attr('fill', st.c);
+                thumb.attr('x', L.thumb.x).attr('y', L.thumb.y).attr('width', L.thumb.w).attr('height', L.thumb.h).attr('fill', rgba(st.c, 0.85));
+                lsel.attr('x', d => L.lines[d].x).attr('y', d => L.lines[d].y).attr('width', d => L.lines[d].w).attr('height', d => L.lines[d].h);
+                const settle = clamp((el % HOLD) / HOLD * 3 - 0.6, 0, 1);
+                label.attr('x', cx).attr('y', L.y0 + L.h + 44).attr('fill', st.c).text(st.label).attr('opacity', 0.5 + settle * 0.5);
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 6 — FONTES VINCULADAS. Conceito: o MIRA lê a fonte e escreve
+        // só na saída, nunca na fonte. Metáfora: scanner. O feixe varre um
+        // original protegido (com cadeado) e nasce uma cópia quente do outro
+        // lado; o original fica intacto.
+        // Loop: varre o original, gera a cópia, repete; a fonte nunca muda.
+        // ============================================================
+        ANIM.s6 = function (svg, gen) {
+            const cy = CENTER.y;
+            const ox = 452, ow = 150, oh = 200, oy = cy - oh / 2;
+            const dx = 828, dw = 150, dh = 200, dy = cy - dh / 2;
+            // seta one-way fonte -> saída
+            const arrow = svg.append('line').attr('x1', ox + ow / 2 + 18).attr('y1', cy).attr('x2', dx - dw / 2 - 18).attr('y2', cy)
+                .attr('stroke', rgba(OR, 0.5)).attr('stroke-width', 2).attr('stroke-dasharray', '6 8');
+            svg.append('path').attr('d', `M${dx - dw / 2 - 18},${cy} l-11,-6 v12 z`).attr('fill', OR);
+            // ORIGINAL protegido (frio, estático)
+            const orig = svg.append('g');
+            orig.append('rect').attr('x', ox - ow / 2).attr('y', oy).attr('width', ow).attr('height', oh).attr('rx', 10).attr('fill', rgba(COLD, 0.12)).attr('stroke', COLD).attr('stroke-width', 2);
+            for (let i = 0; i < 6; i++) orig.append('rect').attr('x', ox - ow / 2 + 20).attr('y', oy + 34 + i * 26).attr('width', (i % 3 === 2 ? 70 : 112)).attr('height', 8).attr('rx', 3).attr('fill', rgba(COLD2, 0.55));
+            // cadeado
+            const lk = ox, lky = oy - 20;
+            orig.append('path').attr('d', `M${lk - 7},${lky} v-5 a7,7 0 0 1 14,0 v5`).attr('fill', 'none').attr('stroke', COLD2).attr('stroke-width', 2.4);
+            orig.append('rect').attr('x', lk - 11).attr('y', lky).attr('width', 22).attr('height', 16).attr('rx', 3).attr('fill', rgba(COLD2, 0.9));
+            // CÓPIA (quente, preenche conforme o scan)
+            const copy = svg.append('g');
+            const copyFrame = copy.append('rect').attr('x', dx - dw / 2).attr('y', dy).attr('width', dw).attr('height', dh).attr('rx', 10).attr('fill', rgba(OR, 0.05)).attr('stroke', OR).attr('stroke-width', 2).style('filter', `drop-shadow(0 0 16px ${rgba(OR, 0.5)})`);
+            const clines = d3.range(6).map(i => copy.append('rect').attr('x', dx - dw / 2 + 20).attr('y', dy + 34 + i * 26).attr('width', 0).attr('height', 8).attr('rx', 3).attr('fill', AM));
+            // feixe de scan
+            const beam = svg.append('rect').attr('y', oy).attr('width', 6).attr('height', oh).attr('fill', rgba(AM, 0.85)).style('filter', `blur(2px) drop-shadow(0 0 12px ${OR})`);
+
+            track('s6', d3.timer(el => {
+                if (gen !== GEN.s6) return;
+                const T = 2600, ph = (el % T) / T;
+                beam.attr('x', lerp(ox - ow / 2, ox + ow / 2, ph) - 3).attr('opacity', ph < 0.97 ? 0.85 : 0);
+                clines.forEach((r, i) => { const target = (i % 3 === 2 ? 70 : 112); r.attr('width', target * clamp((ph - i * 0.025) * 1.1, 0, 1)); });
+                const done = ph > 0.9 ? (ph - 0.9) / 0.1 : 0;
+                copyFrame.attr('transform', done > 0 ? `translate(${dx},${cy}) scale(${1 + Math.sin(el * 0.02) * 0.02 * done}) translate(${-dx},${-cy})` : null);
+                arrow.attr('stroke-dashoffset', -(el * 0.05) % 14);
+            }));
+        };
+
+        // ============================================================
+        // SLIDE 7 — FINALE. MIRA quer dizer "olha". O olho abre, a íris quente
+        // orbita e a assinatura MIRA acende com o acrônimo.
+        // Loop: a íris orbita e a luz percorre a assinatura, sem parar.
+        // ============================================================
+        ANIM.s7 = function (svg, gen) {
+            const cx = CENTER.x, cy = 296, N = 72;
+            const parts = d3.range(N).map(i => ({
+                a: (i / N) * Math.PI * 2, rr: 82 + rand(i) * 20, sp: 0.0004 + rand(i + 5) * 0.0005, c: pick(i), rad: 1.8 + rand(i + 2) * 3,
+                sx: cx + (rand(i + 20) - 0.5) * 900, sy: 360 + (rand(i + 30) - 0.5) * 560, ph: rand(i) * 6.28
+            }));
+            const dots = svg.append('g').selectAll('circle').data(parts).join('circle')
+                .attr('r', d => d.rad).attr('fill', d => d.c).attr('cx', d => d.sx).attr('cy', d => d.sy).style('filter', d => `drop-shadow(0 0 6px ${d.c})`);
+            const pupil = svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 0).attr('fill', '#0a0a0a').attr('stroke', WHITE).attr('stroke-width', 2).style('filter', `drop-shadow(0 0 16px ${OR})`);
+            pupil.transition().delay(1500).duration(700).ease(d3.easeBackOut).attr('r', 26);
+            svg.append('circle').attr('cx', cx - 8).attr('cy', cy - 8).attr('r', 0).attr('fill', WHITE).transition().delay(1900).duration(400).attr('r', 5);
+            const letters = [{ ch: 'M', x: cx - 150, c: OR }, { ch: 'I', x: cx - 50, c: AM }, { ch: 'R', x: cx + 50, c: GOLD }, { ch: 'A', x: cx + 150, c: DEEP }];
+            const my = 500;
+            const txt = svg.append('g').selectAll('text').data(letters).join('text')
+                .attr('text-anchor', 'middle').attr('dominant-baseline', 'central').style('font-family', 'system-ui, sans-serif')
+                .style('font-weight', 800).style('font-size', '132px').attr('fill', d => d.c).attr('opacity', 0)
+                .attr('transform', d => `translate(${d.x},${my + 30}) scale(0.5)`).text(d => d.ch);
+            txt.transition().delay((d, i) => 1000 + i * 130).duration(700).ease(d3.easeBackOut.overshoot(1.4)).attr('opacity', 1).attr('transform', d => `translate(${d.x},${my}) scale(1)`);
+            svg.append('text').attr('x', cx).attr('y', my + 66).attr('text-anchor', 'middle').style('font-family', 'system-ui, sans-serif')
+                .style('font-weight', 500).style('font-size', '18px').style('letter-spacing', '6px').attr('fill', rgba(WHITE, 0.6)).attr('opacity', 0)
+                .text('METÁFORAS INTELIGENTES RESPONSIVAS E ANIMADAS').transition().delay(1800).duration(900).attr('opacity', 1);
+            svg.append('text').attr('x', cx).attr('y', my + 100).attr('text-anchor', 'middle').style('font-family', 'system-ui, sans-serif')
+                .style('font-weight', 600).style('font-size', '20px').style('letter-spacing', '8px').attr('fill', OR).attr('opacity', 0)
+                .text('OLHA. É O MIRA.').transition().delay(2300).duration(900).attr('opacity', 1);
+
+            const INTRO = 1500;
+            track('s7', d3.timer(el => {
+                if (gen !== GEN.s7) return;
+                const p = smooth(clamp(el / INTRO, 0, 1));
+                dots.attr('cx', d => lerp(d.sx, cx + Math.cos(d.a + el * d.sp) * d.rr * (1 + Math.sin(el * 0.0011 + d.ph) * 0.05), p))
+                    .attr('cy', d => lerp(d.sy, cy + Math.sin(d.a + el * d.sp) * d.rr * 0.86 * (1 + Math.sin(el * 0.0011 + d.ph) * 0.05), p));
+                pupil.attr('r', 26 * (1 + Math.sin(el * 0.0016) * 0.12));
+                const sweep = (cx - 190) + ((el * 0.16) % 380), sig = 46;
+                txt.attr('fill', d => mix(d.c, WHITE, Math.exp(-((sweep - d.x) ** 2) / (2 * sig * sig))))
+                    .style('filter', d => { const h = Math.exp(-((sweep - d.x) ** 2) / (2 * sig * sig)); return `drop-shadow(0 0 ${6 + h * 20}px ${mix(d.c, WHITE, h)})`; });
+            }));
+        };
+
+        // ===== Disparo por viewport + Replay =====
+        Object.keys(ANIM).forEach(k => GEN[k] = 0);
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach(e => {
+                const k = e.target.getAttribute('data-anim');
+                if (e.isIntersecting && k) play(k);
+            });
+        }, { threshold: 0.4 });
+        document.querySelectorAll('section[data-anim]').forEach(s => io.observe(s));
+        document.querySelectorAll('[data-replay]').forEach(b => b.addEventListener('click', () => play(b.getAttribute('data-replay'))));
+
+        // ===== Navegação seção a seção (progresso + botão + teclado) =====
+        (function () {
+            const sections = Array.from(document.querySelectorAll('body > section'));
+            if (!sections.length) return;
+            const progress = document.getElementById('mira-progress');
+            const nextBtn = document.getElementById('mira-next');
+            const atBottom = () => (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 100);
+            function currentIndex() {
+                const y = window.scrollY + window.innerHeight * 0.4;
+                let idx = 0;
+                for (let i = 0; i < sections.length; i++) if (sections[i].offsetTop <= y) idx = i;
+                return idx;
+            }
+            function goTo(i) {
+                const idx = Math.max(0, Math.min(sections.length - 1, i));
+                sections[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            window.addEventListener('scroll', () => {
+                const docH = document.documentElement.scrollHeight - window.innerHeight;
+                progress.style.width = (docH > 0 ? (window.scrollY / docH) * 100 : 0) + '%';
+                nextBtn.classList.toggle('visible', window.scrollY > 200);
+                nextBtn.classList.toggle('up', atBottom());
+            });
+            nextBtn.addEventListener('click', () => {
+                if (atBottom()) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+                goTo(currentIndex() + 1);
+            });
+            document.addEventListener('keydown', (e) => {
+                if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); goTo(currentIndex() + 1); }
+                else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); goTo(currentIndex() - 1); }
+                else if (e.key === 'Home') { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                else if (e.key === 'End') { e.preventDefault(); goTo(sections.length - 1); }
+                else if (e.key.toLowerCase() === 'f') { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+            });
+        })();
+    </script>
+
+    <!-- Modo edição (reordenar slides): tecla E ou ?edit=1 -->
+    <script src="mira/mira-edit.js" defer></script>
+    <!-- mira-draw (desenhar sobre o slide): tecla P ou ?draw=1 -->
+    <script src="mira/mira-draw.js" defer></script>
+    <!-- Edição livre estilo Canva (mover/redimensionar/rotacionar/duplicar/excluir/texto): tecla E -->
+    <script src="mira/mira-edit-free.js" defer></script>
+</body>
+
+</html>
