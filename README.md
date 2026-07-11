@@ -83,7 +83,7 @@ Then, in Claude: *"fill the deck my-class with content from the reversa source"*
 
 Every deck ships with a built-in edit mode. Open the deck and press **`E`** (or add `?edit=1` to the URL): each slide gets ↑ ↓ arrows to change its order. **Save** writes the new order back into `index.html` on disk, reordering the source blocks between the `<!-- SLIDE -->` markers without touching the animations.
 
-Saving works two ways: over `file://` it uses the browser's file picker (Chrome/Edge); for silent saves, serve the folder with `node mira-serve.js decks/<name>` and the order is written straight to disk. To add edit mode to an older deck that predates this feature, run `npx mira-animator edit <deck>`.
+Saving works two ways: over `file://` it uses the browser's file picker (Chrome/Edge); for silent saves, serve the folder with `node lib/mira-serve.js decks/<name>` and the order is written straight to disk. To add edit mode to an older deck that predates this feature, run `npx mira-animator edit <deck>`.
 
 ### Drawing over slides
 

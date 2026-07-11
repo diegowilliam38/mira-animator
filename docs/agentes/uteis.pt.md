@@ -34,7 +34,7 @@ O salvar não serializa o DOM ao vivo (que o GSAP, o D3 ou o Lucide já mexeram)
 Sirva o deck por HTTP para salvar sem diálogo nenhum:
 
 ```bash
-node mira-serve.js decks/<nome>
+node lib/mira-serve.js decks/<nome>
 ```
 
 No `file://`, a File System Access API do Chrome pede para você apontar o `index.html` uma vez (lembrado durante a sessão); navegadores sem ela caem no fallback de copiar a nova ordem para você repassar.

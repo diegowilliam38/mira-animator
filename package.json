@@ -58,7 +58,7 @@
     "bin/",
     "lib/",
     "templates/",
-    "mira-serve.js",
+    
     "README.md",
     "LICENSE"
   ],

@@ -479,7 +479,7 @@
                 try { info = await saved.json(); } catch (e) {}
                 if (info && info.path) showTarget(info.path);
             } else {
-                if (!('showOpenFilePicker' in window)) throw new Error('Use o Chrome ou sirva o deck com node mira-serve.js.');
+                if (!('showOpenFilePicker' in window)) throw new Error('Use o Chrome ou sirva o deck com node lib/mira-serve.js.');
                 var handle = await getHandle();
                 if (!(await verifyPermission(handle))) throw new Error('Permissão de escrita negada.');
                 var file = await handle.getFile();

@@ -34,7 +34,7 @@ El guardado no serializa el DOM en vivo (que GSAP, D3 o Lucide ya modificaron): 
 Sirve el deck por HTTP para guardar sin ningún diálogo:
 
 ```bash
-node mira-serve.js decks/<nombre>
+node lib/mira-serve.js decks/<nombre>
 ```
 
 Desde `file://`, la File System Access API de Chrome te pide señalar el `index.html` una vez (recordado durante la sesión); los navegadores sin ella recurren a copiar el nuevo orden para que lo pases de vuelta.

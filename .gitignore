@@ -6,7 +6,7 @@ agents/mira-builder/videos_header/
 decks/**/assets/*.glb
 
 # MkDocs build output
-site/
+.site/
 
 # Notas/rascunhos locais
 no_permissions.md
@@ -16,22 +16,19 @@ no_permissions.md
 .agents/
 AGENTS.md
 CLAUDE.md
+dev/
 
 # Devcontainer (config local, nao vai para o repo publico)
 .devcontainer/
 
-# Repo privado sobreposto (persiste specs, reversa, brainstormings, decks pessoais)
+# Repo privado sobreposto
 .git-private/
-sync-private.sh
 
 # Reversa
 .reversa/
 _reversa_sdd/
 _reversa_docs/
 _reversa_forward/
-
-# Brainstormings locais
-brainstormings/
 
 # Decks: publico so os exemplos curados (allowlist)
 decks/*
