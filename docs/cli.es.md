@@ -66,7 +66,7 @@ Monta `decks/<nombre>/` a partir de una plantilla y registra el deck. Puedes ind
 
 | Elección | Valores |
 |---|---|
-| Plantilla | `aula-capitulo`, `pitch-projeto`, `demo-tecnica`, `sandeco-just-animation-template` |
+| Plantilla | `aula-capitulo`, `pitch-projeto`, `demo-tecnica`, `sandeco-just-animation-template`, `mira-perfect` |
 | Tema | `mira-dark`, `light-minimal`, `corporate-blue`, `neon-emerald` |
 
 ## `edit`

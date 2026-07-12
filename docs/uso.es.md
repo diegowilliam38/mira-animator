@@ -34,6 +34,7 @@ Pregunta el nombre del tema, la plantilla del deck, el tema base, el color princ
 | `pitch-projeto` | Un pitch de proyecto |
 | `demo-tecnica` | Una demo técnica / walkthrough |
 | `sandeco-just-animation-template` | Un escenario negro, sin texto, solo para la animacion de Mira |
+| `mira-perfect` | Animacion a pantalla completa con titulo/header superpuesto (diseno del lanzamiento de MIRA) |
 
 **Temas:** `mira-dark`, `light-minimal`, `corporate-blue`, `neon-emerald`.
 

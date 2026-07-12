@@ -84,7 +84,7 @@ Textos visíveis em português brasileiro, acentuação 100% correta, UTF-8 dire
 
 ## Onde o Slide é Inserido
 
-Como um novo card dentro do deck do tema, em `slides/<tema>/index.html`. Se o deck ainda não existir, crie a partir de um esqueleto em `mira-templates/decks/` (aula-capitulo, pitch-projeto, demo-tecnica ou sandeco-just-animation-template), respeitando a estrutura do template escolhido.
+Como um novo card dentro do deck do tema, em `slides/<tema>/index.html`. Se o deck ainda não existir, crie a partir de um esqueleto em `mira-templates/decks/` (aula-capitulo, pitch-projeto, demo-tecnica, sandeco-just-animation-template ou mira-perfect), respeitando a estrutura do template escolhido.
 
 ## Variante: sandeco-just-animation-template (animação pura, multi-slide)
 
@@ -96,6 +96,15 @@ Quando o deck usa este template, ele NÃO é feito de cards. As regras de card d
 - **Cor: paleta LIVRE multicor**, alto contraste com o preto, NENHUMA cor predominante. NÃO trave em `var(--mira-primary)` nem no laranja do tema. Distribua a paleta (`#00E5FF`, `#7CFF6B`, `#FFD166`, `#FF5C8A`, `#B388FF`, `#FF904D`, mais branco para neutros) entre os elementos.
 - **Mantém** o loop interno perpétuo, o anti-vazamento por geração (`window.__slugGen`), o trigger por `IntersectionObserver` e o botão Replay.
 - Para adicionar um slide, duplique uma `<section class="slide">` e registre a função em `ANIM.sN`.
+
+## Variante: mira-perfect (animação de tela cheia + título/header)
+
+Design do deck de lançamento do MIRA. As regras de card também ficam SUSPENSAS; vale a estrutura do sandeco-just-animation-template (seção acima: `<section class="slide">`, `<svg class="stage">` full-bleed, viewBox 5/10 com `@MIRA:SIZE`, loop perpétuo, anti-vazamento por geração, Replay), com estas diferenças:
+
+- **Cada slide de conteúdo leva TÍTULO e HEADER sobrepostos** num `<div class="slide-head">` (kicker + `<h2>` com `<em>` na palavra de ênfase + parágrafo curto), legíveis pelo scrim do topo. Componha a animação levemente abaixo do centro (o template usa `CY + 40`) para respirar sob o header.
+- **A capa é a assinatura do deck:** `<section class="slide slide-cover">` com `<div class="cover-head">` (kicker + `<h1>` gigante em gradiente + tagline) sobre uma animação ambiente discreta.
+- **Cor: UMA cor de marca dominante**, não paleta livre. A paleta JS (`OR`, `DEEP`, `AM`, `GOLD`) deriva de `--mira-primary`/`--mira-primary-deep`/`--mira-accent-2` do bloco `@MIRA:THEME`; use `COLD`/`COLD2` (aço) SOMENTE para "material bruto / estático / fonte protegida". Sem arco-íris.
+- **Camada cinematográfica compartilhada:** `play()` já envolve todo slide com `cineUnder` (brasas quentes ao fundo) e `cineOver` (vinheta + flash de revelação). Não recrie isso por slide; se um slide precisa de campo limpo, adicione a chave em `NOEMBERS`.
 
 ## Estrutura Obrigatória do Card
 

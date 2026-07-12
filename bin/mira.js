@@ -33,7 +33,7 @@ if (!command || command === '--help' || command === '-h') {
                          Opções: --name=<apelido>  --type=projeto|pdf|latex|texto
     sources              Lista as fontes vinculadas
     new <nome>           Cria um novo deck a partir de um template
-                         Opções: --deck=aula-capitulo|pitch-projeto|demo-tecnica|sandeco-just-animation-template
+                         Opções: --deck=aula-capitulo|pitch-projeto|demo-tecnica|sandeco-just-animation-template|mira-perfect
                                  --theme=mira-dark|light-minimal|corporate-blue|neon-emerald
     edit <deck>          Liga o modo edição (reordenar slides, tecla E) num deck já existente
     status               Mostra o estado da instalação e dos decks

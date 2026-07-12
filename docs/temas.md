@@ -40,6 +40,7 @@ The `decks/` layer holds complete, runnable presentations that serve as **skelet
 | `pitch-projeto` | A project pitch. |
 | `demo-tecnica` | A technical demo or walkthrough. |
 | `sandeco-just-animation-template` | A #000000 stage with no text, only free-form animation. |
+| `mira-perfect` | Full-screen animation with title/header overlay, gradient cover and cinematic layer (MIRA launch design). |
 
 ## The `@MIRA:` markers
 
