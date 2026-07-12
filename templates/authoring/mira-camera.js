@@ -100,7 +100,20 @@
 
         getStream().then(function (stream) {
             activeStream = stream;
-            areas.forEach(function (a) {
+
+            function attach(v) {
+                if (v.srcObject === stream) return;
+                v.srcObject = stream;
+                var p = v.play();
+                if (p && p.catch) p.catch(function () { /* autoplay muted não bloqueia */ });
+            }
+            function detach(v) {
+                if (!v.srcObject) return;
+                try { v.pause(); } catch (e) { }
+                v.srcObject = null;                    // solta o sink; o stream (track) segue vivo e único
+            }
+
+            var videos = areas.map(function (a) {
                 var v = document.createElement('video');
                 v.className = 'cam-video';
                 v.autoplay = true;
@@ -108,11 +121,30 @@
                 v.playsInline = true;
                 v.setAttribute('playsinline', '');
                 v.setAttribute('muted', '');
-                v.srcObject = stream;
                 a.appendChild(v);
-                var p = v.play();
-                if (p && p.catch) p.catch(function () { /* autoplay muted não bloqueia */ });
+                a._camVideo = v;
+                return v;
             });
+
+            /* Um stream ÚNICO (uma permissão), mas cada `.cam-area` é um SINK
+               separado. Com poucos slides, anexar todos é desprezível. Em
+               decks grandes (10, 30 slides com câmera), 30 <video> presos ao
+               track viram 30 texturas/sinks ociosos: então, quando há mais de
+               2 áreas, só a(s) câmera(s) do slide visível (e vizinhos, via
+               rootMargin) seguram o stream — custo de composição/memória fica
+               ~O(1) em vez de O(n_slides). O stream em si nunca é recriado. */
+            if (areas.length > 2 && 'IntersectionObserver' in window) {
+                var io = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (e) {
+                        var v = e.target._camVideo;
+                        if (!v) return;
+                        if (e.isIntersecting) attach(v); else detach(v);
+                    });
+                }, { root: null, rootMargin: '60% 0px', threshold: 0.01 });
+                areas.forEach(function (a) { io.observe(a); });
+            } else {
+                videos.forEach(attach);
+            }
         }).catch(function (err) {
             var insecure = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
             var denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');

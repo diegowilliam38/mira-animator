@@ -20,6 +20,7 @@ para `<deck>/assets/vendor/` e reescreve os HTMLs do deck para caminhos relativo
 | `d3.v7.min.js` | 7.9.0 | `https://d3js.org/d3.v7.min.js` |
 | `inter.css` + `fonts/*.woff2` | Inter v20 (variável) | `https://fonts.googleapis.com/css2?family=Inter` |
 | `three/` (core + OrbitControls + GLTFLoader + BufferGeometryUtils) | three 0.160.0 | `https://unpkg.com/three@0.160.0` |
+| `mp4-muxer.js` | 5.2.2 (UMD, global `Mp4Muxer`) | `https://registry.npmjs.org/mp4-muxer/-/mp4-muxer-5.2.2.tgz` (build/mp4-muxer.js) |
 
 Notas:
 - **Tailwind** é o Play CDN (compila no navegador em runtime). Funciona por `file://`;
@@ -31,6 +32,9 @@ Notas:
   Cobre o scaffold canônico (OrbitControls + GLTFLoader). Um addon fora desse par
   precisa ser adicionado aqui (rode o fecho transitivo a partir do novo entry point).
 - **GSAP** NÃO fica aqui: já é vendorado por-deck pelas skills de morph (`assets/gsap/`).
+- **mp4-muxer** (MIT): muxer MP4 usado pelo `mira-record.js` no caminho WebCodecs
+  (encoder GPU/CPU forçado, estilo OBS). O `mira-record.js` o carrega sob demanda de
+  `<deck>/assets/vendor/mp4-muxer.js` — decks `mira-studio` devem receber esta cópia.
 
 ## Como regenerar (com internet aberta)
 

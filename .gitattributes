@@ -2,3 +2,10 @@
 # fim de linha entre plataformas. Sao copias exatas de upstream + fontes binarias.
 templates/vendor/** -text
 *.woff2 binary
+
+# Launchers Windows: cmd.exe exige CRLF (com LF, blocos e labels quebram e a
+# janela fecha na hora). Garante CRLF em qualquer checkout.
+*.bat text eol=crlf
+
+# Este arquivo já é versionado em CRLF; não trate o CR como whitespace inválido.
+lib/installer/writer.js whitespace=cr-at-eol

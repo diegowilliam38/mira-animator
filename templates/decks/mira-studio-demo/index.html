@@ -107,6 +107,12 @@
         /* palco de animação: preenche todo o resto (viewBox casado em runtime) */
         .anim-stage { flex: 1 1 auto; min-height: 0; width: 100%; }
         .anim-stage svg { width: 100%; height: 100%; display: block; }
+
+        /* === DISSOLVE (View Transitions same-document) === */
+        ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.55s; }
+        /* UI fixa não participa do crossfade do palco */
+        #mrc-panel { view-transition-name: mrc-panel; }
+        .cam-notice { view-transition-name: cam-notice; }
     </style>
 </head>
 <body>
@@ -388,9 +394,25 @@
                 for (var i = 0; i < secs.length; i++) if (secs[i].offsetTop <= window.scrollY + 4) best = i;
                 return best;
             }
+            function dissolve(jump) {
+                /* View Transitions tira snapshots old/new. Durante a captura
+                   da própria guia isso pode criar hitch e gap no MP4; a
+                   gravação prioriza troca instantânea e mantém o dissolve
+                   apenas na apresentação normal. */
+                if (document.documentElement.hasAttribute('data-mira-recording')) { jump(); return; }
+                if (document.startViewTransition) document.startViewTransition(jump); else jump();
+            }
             function go(d) {
-                var i = Math.max(0, Math.min(secs.length - 1, current() + d));
-                secs[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+                var from = current();
+                var i = Math.max(0, Math.min(secs.length - 1, from + d));
+                if (i === from) return;
+                /* mira-record abre uma janela de diagnóstico para long task,
+                   rAF e gap PTS exatamente no momento da navegação. */
+                try { window.dispatchEvent(new CustomEvent('mira-navigation', {
+                    detail: { from: from, to: i, at: performance.now() }
+                })); } catch (e) { }
+                /* 'instant', nunca 'auto': o scroll-behavior smooth do CSS estragaria o snapshot */
+                dissolve(function () { secs[i].scrollIntoView({ behavior: 'instant', block: 'start' }); });
             }
             document.addEventListener('keydown', function (e) {
                 if (document.body.classList.contains('me-on') || document.body.classList.contains('md-on')) return;
@@ -409,6 +431,6 @@
     <script defer src="mira/mira-draw.js"></script>
     <script defer src="mira/mira-camera.js"></script>
     <script defer src="mira/mira-record.js"></script>
-<script id="mira-free-edits" type="application/json">{"v":1,"ops":[{"id":"me-0-2","tx":-49.5867919921875,"ty":-15.978012084960938,"sx":1.07,"sy":0.776},{"id":"me-0-4","tx":-72.72723388671875,"ty":-33.057830810546875}]}</script>
+<script id="mira-free-edits" type="application/json">{"v":1,"ops":[{"id":"me-0-2","tx":-68.37469482421875,"ty":-31.735595703125,"sx":1.222,"sy":0.886},{"id":"me-0-4","tx":-72.72723388671875,"ty":-33.057830810546875},{"id":"me-2-2","tx":1.21209716796875,"ty":-3.6363525390625,"sx":0.657,"sy":0.657}]}</script>
 </body>
 </html>
