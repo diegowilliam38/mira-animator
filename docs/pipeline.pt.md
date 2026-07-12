@@ -75,6 +75,7 @@ Estes produzem arquivos extras ao lado do seu deck sem tocar no original. Veja [
 | **mira-squared** | `index-1x1.html` | quadrado 1:1 |
 | **mira-vertical** | `index-9x16.html` | vertical 9:16 |
 | **mira-thirds** | `index-thirds.html` | regra dos terços |
+| **mira-studio** | `decks/<nome>/` | deck de gravação 9:16 com câmera embutida ao vivo (pronto para OBS) |
 | **mira-transition-dissolve** | `index-dissolve.html` | transição dissolve |
 | **mira-slide-to-video** | `deck.mp4` | vídeo MP4 da animação real dos slides |
 

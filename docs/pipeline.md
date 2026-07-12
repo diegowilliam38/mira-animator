@@ -75,6 +75,7 @@ These produce extra files next to your deck without touching the original. See [
 | **mira-squared** | `index-1x1.html` | 1:1 square |
 | **mira-vertical** | `index-9x16.html` | 9:16 vertical |
 | **mira-thirds** | `index-thirds.html` | rule of thirds |
+| **mira-studio** | `decks/<name>/` | 9:16 recording deck with live embedded camera (OBS-ready) |
 | **mira-transition-dissolve** | `index-dissolve.html` | dissolve transition |
 | **mira-slide-to-video** | `deck.mp4` | MP4 video of the slides' real animation |
 

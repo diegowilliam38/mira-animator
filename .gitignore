@@ -39,3 +39,6 @@ decks/*
 
 # Videos de teste pesados nos decks
 decks/**/*.mp4
+
+# Decks de teste (nao vao para o repo publico)
+tests/
