@@ -732,7 +732,14 @@
                     video: { codec: 'avc', width: cfg.out.w, height: cfg.out.h },
                     audio: cfg.audio ? { codec: 'aac', sampleRate: cfg.audio.sampleRate, numberOfChannels: cfg.audio.numberOfChannels } : undefined,
                     fastStart: 'in-memory',
-                    firstTimestampBehavior: 'cross-track-offset'
+                    /* 'offset' (por track), NUNCA 'cross-track-offset': mic
+                       (AudioData ~0) e captura de tela (VideoFrame no relógio
+                       de uptime) usam origens de relógio diferentes; o cross-
+                       track preserva essa diferença e desloca o vídeo em horas
+                       (vídeo congelado no 1º frame + duração absurda). Os dois
+                       processors nascem juntos no start, então o desvio A/V do
+                       offset por track é <= 1 frame. */
+                    firstTimestampBehavior: 'offset'
                 });
             } catch (e) { fatal('muxer', e); return; }
             if (scaleMode === 'canvas') ensureCanvas();
