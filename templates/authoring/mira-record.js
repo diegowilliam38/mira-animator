@@ -993,11 +993,11 @@
             var vt = S.tab.getVideoTracks()[0];
             S.vt = vt;
 
-            /* slides são conteúdo estático de alta nitidez: 'detail' manda o
-               capturador preservar a RESOLUÇÃO e degradar framerate quando
-               precisar — sem isso ele derruba a resolução da fonte no meio
-               da gravação e o upscale sai borrado */
-            try { vt.contentHint = 'detail'; } catch (eHint) { /* navegador sem contentHint */ }
+            /* 'motion' prioriza FRAMERATE constante (menos gaps); o preço é
+               o capturador poder degradar a resolução da fonte sob carga
+               (texto pode borrar) — trade-off oposto ao 'detail' original,
+               escolhido porque a matriz apontou os gaps como problema maior */
+            try { vt.contentHint = 'motion'; } catch (eHint) { /* navegador sem contentHint */ }
 
             /* o recorte só é válido capturando ESTA guia: janela/tela teria outra geometria */
             var surface = vt.getSettings && vt.getSettings().displaySurface;
@@ -1188,7 +1188,7 @@
         });
         var vt = S.tab.getVideoTracks()[0];
         S.vt = vt;
-        try { vt.contentHint = 'detail'; } catch (e) { }
+        try { vt.contentHint = 'motion'; } catch (e) { }
         var surface = vt.getSettings && vt.getSettings().displaySurface;
         if (surface && surface !== 'browser') {
             cleanup(); note('Escolha "Esta guia" no seletor de captura e tente de novo.'); ui.status.textContent = 'pronto'; return;
