@@ -51,7 +51,19 @@
             if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
                 streamPromise = Promise.reject(new Error('mira-camera: contexto inseguro (sem mediaDevices)'));
             } else {
-                streamPromise = navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                // Studio+: respeita a câmera escolhida na pré-config (RF-09);
+                // se o id não existir mais, cai na câmera padrão.
+                var plus = window.__miraStudioPlus;
+                var id = plus && plus.cameraDeviceId;
+                if (id) {
+                    streamPromise = navigator.mediaDevices
+                        .getUserMedia({ video: { deviceId: { exact: id } }, audio: false })
+                        .catch(function () {
+                            return navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                        });
+                } else {
+                    streamPromise = navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                }
             }
         }
         return streamPromise;
