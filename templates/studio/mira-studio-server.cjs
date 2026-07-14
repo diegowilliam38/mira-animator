@@ -36,8 +36,19 @@ const MIME = {
     '.gif': 'image/gif', '.svg': 'image/svg+xml', '.webp': 'image/webp',
     '.ico': 'image/x-icon', '.woff': 'font/woff', '.woff2': 'font/woff2',
     '.ttf': 'font/ttf', '.glb': 'model/gltf-binary', '.mp4': 'video/mp4',
-    '.webm': 'video/webm', '.mp3': 'audio/mpeg'
+    '.webm': 'video/webm', '.mp3': 'audio/mpeg', '.pdf': 'application/pdf'
 };
+
+/* limite de uma gravação de deck: o index.html mais pesado não chega perto */
+const MAX_SAVE_BYTES = 25 * 1024 * 1024;
+
+/* resolve um caminho pedido pelo cliente DENTRO do root servido; devolve
+   null em qualquer tentativa de sair dele (path traversal) */
+function resolveInRoot(rel) {
+    const abs = path.resolve(path.join(ROOT, '.' + rel));
+    if (abs !== ROOT && !abs.startsWith(ROOT + path.sep)) return null;
+    return abs;
+}
 
 function line(value) {
     return '[' + new Date().toISOString() + '] ' + String(value);
@@ -142,11 +153,52 @@ const server = http.createServer(function (req, res) {
         return;
     }
 
-    if (url === '/') url = '/index.html';
-    const file = path.resolve(path.join(ROOT, '.' + url));
-    if (file !== ROOT && !file.startsWith(ROOT + path.sep)) {
-        res.writeHead(403); res.end(); return;
+    /* caminho absoluto do alvo de gravação (o mira-edit usa para o rótulo da barra) */
+    if (url === '/__mira_meta') {
+        let rel = '/index.html';
+        try { rel = new URL(req.url, 'http://x').searchParams.get('path') || rel; } catch (e) { }
+        const abs = resolveInRoot(rel);
+        if (!abs) { json(res, 403, { error: 'fora do root' }); return; }
+        json(res, 200, { path: abs });
+        return;
     }
+    /* gravação no disco: o "Salvar no arquivo" do deck (bloco #mira-studio-state)
+       e o Salvar da barra do mira-edit. Só HTML, só dentro do root. */
+    if (url === '/__mira_save' && (req.method === 'POST' || req.method === 'PUT')) {
+        const chunks = [];
+        let size = 0, tooBig = false;
+        req.on('data', function (c) {
+            size += c.length;
+            if (size > MAX_SAVE_BYTES) { tooBig = true; req.destroy(); }
+            else chunks.push(c);
+        });
+        req.on('error', function () { try { json(res, 400, { error: 'erro na leitura' }); } catch (e) { } });
+        req.on('end', function () {
+            if (tooBig) { json(res, 413, { error: 'conteúdo grande demais' }); return; }
+            let body;
+            try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+            catch (e) { json(res, 400, { error: 'json inválido' }); return; }
+            const rel = body && body.path;
+            const content = body && body.content;
+            if (typeof content !== 'string' || typeof rel !== 'string' || !rel) {
+                json(res, 400, { error: 'path/content faltando' }); return;
+            }
+            const abs = resolveInRoot(rel);
+            if (!abs) { json(res, 403, { error: 'fora do root' }); return; }
+            const ext = path.extname(abs).toLowerCase();
+            if (ext !== '.html' && ext !== '.htm') { json(res, 403, { error: 'só .html/.htm' }); return; }
+            fs.writeFile(abs, content, 'utf8', function (err) {
+                if (err) { json(res, 500, { error: String(err && err.message || err) }); return; }
+                log('salvo: ' + abs + ' (' + size + ' bytes)');
+                json(res, 200, { path: abs, ok: true });
+            });
+        });
+        return;
+    }
+
+    if (url === '/') url = '/index.html';
+    const file = resolveInRoot(url);
+    if (!file) { res.writeHead(403); res.end(); return; }
     fs.readFile(file, function (err, data) {
         if (err) { res.writeHead(404); res.end(); return; }
         res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream' });

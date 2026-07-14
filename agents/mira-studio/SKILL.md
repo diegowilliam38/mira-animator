@@ -80,18 +80,40 @@ Fonte canônica em `templates/authoring/mira-record.js`; copie para `mira/` do d
 - **Métricas reais ao vivo:** durante a gravação o painel mostra `fps efetivo · % descartado · fila do encoder · Mbps real · MB` (reportado pelo Worker). É o diagnóstico honesto — se o % descartado sobe ou o fps cai de 20, é o sinal para trocar para o modo Desempenho ou checar `chrome://gpu`. Abaixo de ~20 fps por 3s o painel também avisa uma vez (trecho de tela estática não conta como lentidão). Em notebook, grave na tomada.
 - **Diagnóstico de recorte e navegação:** o painel registra `input`, `crop`, `output`, caminho `direct/canvas`, maior long task, gap de rAF e gap PTS na janela de cada `mira-navigation`. Ao finalizar, o botão **salvar diagnóstico JSON** permite anexar as métricas à evidência. Os limites Windows são long task ≤50 ms e gap PTS ≤100 ms na troca.
 - **Qualidade × Desempenho:** seletor no painel. **Alta** = 1080×1920 (padrão de reels). **Desempenho** = grava na resolução NATIVA da coluna (~608×1080 num display comum), ~3× menos pixels a codificar — a alavanca real para máquina fraca, independente de CPU/GPU. Resolução constante mantém o MP4 `avc1` válido; o bitrate é escalado proporcionalmente.
-- **Gravação longa:** o mux é in-memory (teto ~2 GB do `ArrayBuffer`), então a gravação avisa por volta de ~384 MB e PARA sozinha com elegância (salvando o que já gravou) perto de ~512 MB. Para clipes longos, grave em partes. (Escrever direto no disco via File System Access fica como evolução futura, documentada em `plano-lag-gravacao.md`.)
+- **Gravação longa — direto no disco, sem teto (padrão):** a chave **`salvar direto no disco`** (ligada por padrão) faz o Worker escrever o MP4 **no arquivo enquanto grava** (File System Access + `FileSystemWritableFileStreamTarget` do mp4-muxer, com `fastStart: false`). Nada acumula em RAM: a gravação dura o que o disco aguentar, e o `finalize()` deixa de copiar centenas de MB. O usuário escolhe o arquivo **uma vez, antes de começar** (o `showSaveFilePicker` exige ativação do usuário, por isso vem antes do seletor de captura); ao parar, o arquivo já está lá — não há download. **Preço honesto:** sem o buffer inteiro em mãos, o índice do MP4 (`moov`) vai para o **fim** do arquivo. Parar normalmente escreve o índice e o vídeo abre em qualquer player; um travamento do navegador no meio deixa um MP4 com os dados e **sem índice** (ilegível sem reparo). Se o seletor for cancelado, a gravação nem começa (e o arquivo de 0 byte é removido).
+- **Gravação em memória (fallback):** sem File System Access (`file://`, outros navegadores) a chave fica desligada e cinza, e o mux volta a ser in-memory — com o teto real do `ArrayBuffer` (~2 GB): avisa por volta de ~384 MB e PARA sozinha perto de ~512 MB, que a 12 Mbps são uns **6 minutos**. Nesse modo, para clipes longos, grave em partes.
 - **Microfone opcional:** toggle no painel, mixado na gravação (a câmera já está composta no slide).
-- **Controles:** botão Gravar/Parar no painel ou tecla **R** (quieta nos modos E/P e digitação). Ao iniciar, o usuário escolhe "Esta guia" no seletor do navegador. O arquivo baixa sozinho ao parar (`mira-reels-<timestamp>.mp4`).
+- **Controles:** botão Gravar/Parar no painel ou tecla **R** (quieta nos modos E/P e digitação). Ao iniciar, o usuário escolhe "Esta guia" no seletor do navegador. O arquivo baixa sozinho ao parar (`mira-reels-<timestamp>.mp4`, ou `-PARCIAL` quando houve perda no caminho de encode/leitura/flush).
+- **Recorte da coluna:** tenta **Element Capture** (`restrictTo` na seção visível) quando o deck declara `window.__miraElemCapture`; a track já sai 9:16 e o teleprompter fica fora do vídeo. O `restrictTo` é **reaplicado a cada troca de slide** (evento `mira-navigation` e `scroll`), senão o vídeo congela no slide anterior. Sem a flag ou sem suporte, cai no **Region Capture** de sempre.
 - O painel some em telas estreitas (a coluna ocupa tudo) e nunca aparece na gravação.
 
 O OBS continua como alternativa (captura de janela + recorte); a gravação nativa é o caminho sem instalação.
+
+## Teleprompter que não entra no vídeo (padrão de todo deck mira-studio)
+
+Todo deck nasce com o teleprompter em **duas peças**, mais o editor de overlays e a persistência no arquivo. Os blocos canônicos estão no deck de referência; copie-os como estão.
+
+- **Painel lateral (`#mira-prompter`, tecla T):** fica na margem cinza, FORA da coluna. É o **editor**: as quatro chaves, o texto do slide (`#mp-body`, `contenteditable`) e o botão "Salvar no arquivo". **Some durante a gravação** (`html[data-mira-recording] #mira-prompter { display: none }`) — quem se lê no ar é o overlay.
+- **Overlay central (`#tp-ov`, tecla O):** o retângulo que o apresentador lê, por cima da coluna (fundo preto 60%, texto branco 60%). É **irmão das `<section>`, nunca filho** — é exatamente isso que permite excluí-lo do vídeo.
+- **Texto por slide:** o array `SCRIPT[]` traz o roteiro (uma entrada por `<section>`); editar no painel reflete no overlay na hora e persiste em `localStorage['mira-tp-text']`. O texto troca ao navegar (`scroll` + `mira-navigation`).
+- **Element Capture (tecla G):** a gravação nativa restringe a captura à **subárvore da seção visível** (`RestrictionTarget.fromElement` + `track.restrictTo`), então tudo que não é descendente dela — o overlay e o painel — **não é pintado no vídeo**, mesmo sobreposto. O deck liga o recurso declarando `window.__miraElemCapture = true`; sem essa flag o `mira-record.js` usa o Region Capture de sempre.
+- **Editor genérico de overlays (`.me-ov`, tecla E):** qualquer camada sobre a câmera marcada com `class="me-ov" data-me-chrome data-me-key="<id>"` (mais um filho `<div class="me-ov-grip" data-me-chrome></div>`) vira movível e redimensionável no modo E. O `data-me-chrome` é obrigatório: sem ele o `mira-edit-free` disputa o mesmo clique e seleciona o `<img>` interno em vez do grupo.
+- **Salvar no arquivo (botão ou Ctrl+S):** grava TODO o estado editável (posições, tamanhos e textos) no bloco `<script id="mira-studio-state" type="application/json">` do próprio `index.html` — em localhost por `POST /__mira_save`, em `file://` pela File System Access API. No load, um IIFE **semeia o `localStorage` a partir desse bloco**: o **arquivo é a fonte da verdade**, não o navegador. No template o bloco começa `{}`.
+
+**Onde cada overlay mora (a regra de ouro):** o que deve entrar no vídeo (logo, selo, animação sobre a câmera) fica **DENTRO** da `<section>`; o que não deve (teleprompter, painéis) fica **FORA** dela, como filho direto de `body`.
+
+### Restrições honestas (diga isto ao usuário, não prometa mais)
+
+- Excluir o teleprompter do vídeo só funciona no **gravador nativo (tecla R)**. **No OBS não**: ele grava os pixels da janela, e nada exclui um overlay. Para gravar no OBS, use só o painel lateral (que já fica fora da coluna recortada).
+- Element Capture exige **Chrome/Edge desktop recente** e **contexto seguro** (localhost ou https). Sem suporte, o deck cai no Region Capture e o **overlay some durante a gravação** (fallback no CSS, via `html[data-mira-recording]:not([data-mira-elemcapture])`), para não vazar.
+- `body > section { isolation: isolate }` é **pré-requisito**: sem stacking context o Chrome aceita o `restrictTo` e não emite frame — o MP4 sai vazio.
+- Salvar por localhost exige o **servidor com os endpoints** (`/__mira_save`, `/__mira_meta`): num deck antigo, **reinicie o launcher** depois de atualizar o `mira-studio-server.cjs`.
 
 ## Launcher `mira-studio-windows.bat` + `mira/mira-studio-server.cjs` (GPU dedicada, opcional)
 
 Fontes canônicas em `templates/studio/`: o `.bat` vai para a RAIZ do deck (diretiva: raiz = `index.html` + launchers) e o `mira-studio-server.cjs` para a pasta `mira/`. O ciclo de vida segue o padrão comprovado do Mira Remote/mesa tática: Node em primeiro plano, navegador aberto pelo servidor somente depois de `listen()` confirmar readiness.
 
-1. Sobe `mira/mira-studio-server.cjs` (Node puro): serve o deck em `http://127.0.0.1:8123` (ou próxima porta livre), expõe `/__mira/health` e `/__mira/gpus`. A consulta Win32 é uma Promise cacheada com estado `loading/ready/error`; o painel usa retry limitado. Falha de GPU não torna o HTTP do deck indisponível.
+1. Sobe `mira/mira-studio-server.cjs` (Node puro): serve o deck em `http://127.0.0.1:8123` (ou próxima porta livre), expõe `/__mira/health` e `/__mira/gpus`. A consulta Win32 é uma Promise cacheada com estado `loading/ready/error`; o painel usa retry limitado. Falha de GPU não torna o HTTP do deck indisponível. O servidor também expõe **`GET /__mira_meta`** (caminho absoluto do alvo, usado pelo rótulo do mira-edit) e **`POST /__mira_save`** (grava o HTML no disco: é o "Salvar no arquivo" do deck e o Salvar da barra do mira-edit). O `/__mira_save` só aceita `.html`/`.htm`, só dentro do root servido (trava de path traversal) e até ~25 MB. O MIME inclui `.pdf` (slide `full` com PDF em `<iframe>` fica em branco sem ele).
 2. Só depois do `listen()` bem-sucedido, o próprio servidor abre um Chrome dedicado (`--user-data-dir` em `%LOCALAPPDATA%\mira-studio\`) com `--force-high-performance-gpu`. A flag é uma **preferência**, não garantia: Windows/driver escolhem o adaptador final e o painel separa GPUs instaladas, renderer ativo e encoder hardware preferido. **Nenhuma escrita em registro ou configuração do Windows.**
 3. O Node permanece em primeiro plano até `Ctrl+C`. Não use `start /wait chrome.exe` nem mate o servidor quando o comando Chrome retornar: se o mesmo perfil já estiver aberto, o Chrome encaminha a URL ao processo existente e retorna imediatamente.
 4. stdout/stderr ficam visíveis e os eventos do servidor também são anexados a `mira/mira-studio.log`. Node ausente, portas esgotadas ou servidor ausente deixam mensagem acionável; não abra uma aba destinada a loading.
@@ -111,6 +133,9 @@ Sem GPU dedicada o launcher é inócuo (a flag aponta para a única GPU); o deck
     width: var(--fmt-w); height: var(--fmt-h); min-height: var(--fmt-h);
     overflow: hidden; background: var(--mira-bg, #0d0d0f);
     display: flex; flex-direction: column;
+    /* stacking context: EXIGIDO pelo Element Capture. Sem isto o Chrome aceita
+       o restrictTo e NÃO emite frame nenhum (o MP4 sai vazio). Não remova. */
+    isolation: isolate;
   }
   /* camera: webcam na coluna inteira */
   section[data-layout="camera"] .cam-area { flex: 1 1 auto; min-height: 0; }
@@ -145,13 +170,17 @@ Todo deck mira-studio nasce com a transição **dissolve** (View Transitions sam
 
 Os dois blocos estão no deck de referência; detalhes e regras completas em `agents/mira-transition-dissolve/SKILL.md`.
 
+## Teclas do deck (documente na entrega)
+
+**T** painel lateral · **O** overlay central · **G** Element Capture · **E** editar (mover/redimensionar overlays) · **Ctrl+S** salvar no arquivo · **R** gravar · **C** espelhar câmera · **P** pintar · setas navegam. T/O/G ficam quietas nos modos E/P e durante a digitação.
+
 ## Passos
 
-1. **Colher o roteiro.** Liste com o usuário os slides e o layout de cada um. Sem layout declarado, pergunte.
+1. **Colher o roteiro.** Liste com o usuário os slides e o layout de cada um. Sem layout declarado, pergunte. O que ele vai FALAR em cada slide vira o `SCRIPT[]` do teleprompter.
 2. **Criar a estrutura.** `decks/<nome>/` com `index.html`, `mira/` (edit, edit-free, draw, camera, record copiados de `templates/authoring/` + `mira-studio-server.cjs` de `templates/studio/`), `assets/vendor/mp4-muxer.js` (de `templates/vendor/`, obrigatório para os encoders do painel), `assets/vendor/d3.v7.min.js` quando houver animação, e `mira-studio-windows.bat` na raiz (de `templates/studio/`, launcher com preferência de alto desempenho).
-3. **Gerar os slides.** Um `body > section` por slide com `data-layout` correto; `.cam-area` nas áreas de câmera; animações nativas da geometria (quadrado no `split`, retrato no `full`) com `casarPalco` + `fitToArea` e loop interno.
-4. **Injetar os blocos canônicos.** `<style id="mira-formato-multi">`, `fitTitles`, navegação com dissolve (transição padrão), e os cinco `<script defer src="mira/...">` antes de `</body>` (`mira-edit.js` → `mira-edit-free.js` → `mira-draw.js` → `mira-camera.js` → `mira-record.js`).
-5. **Verificar.** Servido em localhost: câmera nas áreas certas, permissão pedida uma vez, animações preenchendo, títulos em máx. 2 linhas. Em `file://`: áreas verdes `#00FF00` puras.
+3. **Gerar os slides.** Um `body > section` por slide com `data-layout` correto; `.cam-area` nas áreas de câmera; animações nativas da geometria (quadrado no `split`, retrato no `full`) com `casarPalco` + enquadramento **uma vez** sobre a parte estática (reenquadrar a cada frame faz o palco reescalar junto com o que se move) e loop interno. Todo callback de `d3.timer` vai dentro de `try/catch`: uma exceção num deles congela a FILA inteira de timers do d3.
+4. **Injetar os blocos canônicos.** `<style id="mira-formato-multi">` (com o `isolation: isolate`), `fitTitles`, navegação com dissolve (transição padrão), o **teleprompter completo** (painel + overlay + `SCRIPT[]` + chaves + editor `.me-ov` + bloco `#mira-studio-state` vazio + seed + salvar/Ctrl+S) e os cinco `<script defer src="mira/...">` antes de `</body>` (`mira-edit.js` → `mira-edit-free.js` → `mira-draw.js` → `mira-camera.js` → `mira-record.js`).
+5. **Verificar.** Servido em localhost: câmera nas áreas certas, permissão pedida uma vez, animações preenchendo, títulos em máx. 2 linhas. Painel lateral com as chaves T/O/G/E sincronizadas; editar o texto reflete no overlay; **Ctrl+S** grava e o texto sobrevive ao reload. Gravando com `Element Capture: ON`, o overlay continua visível para você e **some do MP4** — e navegar entre slides durante a gravação não pode congelar o vídeo. Em `file://`: áreas verdes `#00FF00` puras.
 6. **Reportar.** Caminho do deck, layout de cada slide (uma linha por slide), a gravação nativa (tecla R; encoder Auto/Hardware preferido/Software no painel; launcher Windows para inventário e preferência de alto desempenho) e a receita OBS como alternativa: servir com `node lib/mira-serve.js decks/<nome>` (ou `npx mira-animator serve`), Chrome em tela cheia, Captura de Janela no OBS, recorte na coluna, gravação 1080x1920.
 
 ## Edge cases (do mais comum ao menos)
@@ -173,7 +202,16 @@ Os dois blocos estão no deck de referência; detalhes e regras completas em `ag
 - [ ] Câmera: stream único, mudo, espelhado por padrão, tecla C alternando.
 - [ ] Fallback: em `file://` as áreas ficam `#00FF00` PURO, sem texto por cima.
 
-- [ ] Transição dissolve aplicada no `index.html` (bloco `=== DISSOLVE` + `dissolve()` na navegação; UI fixa com `view-transition-name`).
+**Teleprompter (o que mais quebra aqui):**
+- [ ] `body > section { isolation: isolate }` presente (sem ele o Element Capture grava vídeo VAZIO).
+- [ ] Painel `#mira-prompter` e overlay `#tp-ov-wrap` **fora** das `<section>`; overlays que devem entrar no vídeo, **dentro**.
+- [ ] `SCRIPT[]` com uma entrada por slide; texto troca ao navegar e reflete do painel no overlay.
+- [ ] `window.__miraElemCapture = true` declarado (é o opt-in que liga o Element Capture no mira-record).
+- [ ] Bloco `#mira-studio-state` começa `{}`, com o IIFE de **seed antes** de qualquer leitor de `localStorage`.
+- [ ] `.me-ov` com `data-me-chrome` (senão o mira-edit-free briga pelo clique) e `.me-ov-grip`.
+- [ ] Restrições honestas ditas ao usuário: só no gravador nativo (R), não no OBS; Chrome desktop recente; localhost/https.
+
+- [ ] Transição dissolve aplicada no `index.html` (bloco `=== DISSOLVE` + `dissolve()` na navegação; UI fixa com `view-transition-name`, inclusive `#mira-prompter` e `#tp-ov-wrap`).
 - [ ] Durante recording, navegação instantânea sem `startViewTransition` e evento `mira-navigation` emitido antes do salto.
 - [ ] Coluna `calc(100vh * 9/16)` x `100vh`, laterais `#333333`, centralizada via flex.
 - [ ] `mira/` com os 5 módulos e tags na ordem certa antes de `</body>`.

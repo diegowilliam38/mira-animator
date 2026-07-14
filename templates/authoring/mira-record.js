@@ -15,8 +15,17 @@
    para um Worker dedicado:
 
      - Captura a própria aba via getDisplayMedia (preferCurrentTab).
-     - Region Capture (CropTarget.fromElement + track.cropTo) recorta a
-       coluna no compositor do navegador (GPU), quando disponível.
+     - Element Capture (RestrictionTarget.fromElement + track.restrictTo)
+       restringe a captura à SUBÁRVORE da seção visível: além de entregar
+       a coluna 9:16 já recortada, tudo que não é descendente dela (o
+       teleprompter, que é irmão das <section>) NÃO é pintado no vídeo,
+       mesmo sobreposto. Exige stacking context no alvo — por isso o deck
+       leva `body > section { isolation: isolate }`; sem ele o Chrome
+       aceita o restrictTo e não emite frame nenhum.
+     - Sem Element Capture, cai para Region Capture (CropTarget.fromElement
+       + track.cropTo), que é GEOMÉTRICO: recorta a coluna no compositor
+       (GPU) mas captura qualquer pixel sobreposto. Nesse caminho o deck
+       esconde o teleprompter durante a gravação.
      - MediaStreamTrackProcessor puxa VideoFrame's DIRETO da track
        recortada — sem <video>, sem requestVideoFrameCallback, sem
        canvas 2D no main thread. O readable é TRANSFERIDO ao Worker.
@@ -118,6 +127,7 @@
             '<button id="mrc-btn" type="button">&#9679; Gravar</button>' +
             '<div id="mrc-status">pronto</div>' +
             '<label id="mrc-mic"><input type="checkbox" checked> microfone</label>' +
+            '<label id="mrc-disk"><input type="checkbox" checked> salvar direto no disco</label>' +
             '<label id="mrc-enc">encoder <select>' +
             '<option value="auto">Auto (navegador)</option>' +
             '<option value="gpu">Hardware preferido</option>' +
@@ -131,12 +141,13 @@
             '<div id="mrc-metrics"></div>' +
             '<div id="mrc-diag"></div>' +
             '<button id="mrc-diag-save" type="button" disabled>salvar diagnóstico JSON</button>' +
-            '<div id="mrc-note">Grava só a coluna dos slides. Tecla R também liga/desliga. Ao iniciar, escolha "Esta guia".</div>';
+            '<div id="mrc-note">Grava só a coluna dos slides. Tecla R também liga/desliga. Ao iniciar: escolha ONDE salvar o MP4 e depois "Esta guia".</div>';
         document.body.appendChild(p);
         ui.panel = p;
         ui.btn = p.querySelector('#mrc-btn');
         ui.status = p.querySelector('#mrc-status');
         ui.mic = p.querySelector('#mrc-mic input');
+        ui.disk = p.querySelector('#mrc-disk input');
         ui.enc = p.querySelector('#mrc-enc select');
         ui.qual = p.querySelector('#mrc-qual select');
         ui.gpu = p.querySelector('#mrc-gpu');
@@ -146,6 +157,7 @@
         ui.note = p.querySelector('#mrc-note');
         ui.btn.addEventListener('click', toggle);
         ui.diagSave.addEventListener('click', saveDiagnostics);
+        setupDiskToggle();
         setupEncoderSelect();
         setupQualitySelect();
         makeDraggable(p);
@@ -488,6 +500,39 @@
         geoRaf = requestAnimationFrame(function () { geoRaf = 0; readGeo(); });
     }
 
+    /* ---------- Element Capture: restringe a captura à seção visível ----
+       O alvo do restrictTo é a <section> do slide em cena. Só o que é
+       DESCENDENTE dela entra no vídeo: overlays irmãos das seções (o
+       teleprompter do deck) ficam de fora mesmo por cima. Pré-requisito
+       no CSS do deck: `body > section { isolation: isolate }` — sem
+       stacking context o Chrome aceita a chamada e não emite frame. */
+    function currentSection() {
+        var secs = document.querySelectorAll('body > section');
+        if (!secs.length) return null;
+        var mid = window.scrollY + window.innerHeight * 0.5, best = secs[0];
+        for (var i = 0; i < secs.length; i++) if (secs[i].offsetTop <= mid) best = secs[i];
+        return best;
+    }
+    function elemCaptureRT(track) {
+        var RT = (typeof RestrictionTarget !== 'undefined') ? RestrictionTarget
+            : (typeof window !== 'undefined' && window.RestrictionTarget) ? window.RestrictionTarget : null;
+        return (RT && typeof RT.fromElement === 'function' && track && typeof track.restrictTo === 'function') ? RT : null;
+    }
+    /* a seção restrita SAI do viewport ao navegar: sem reaplicar à nova
+       seção visível, o vídeo congela no slide anterior. Vale para teclado,
+       roda, touchpad, barra de rolagem e scroll programático. */
+    function reRestrict() {
+        if (!S.elemActive || !S.vt) return;
+        var RT = elemCaptureRT(S.vt);
+        if (!RT) return;
+        var sec = currentSection();
+        if (!sec || sec === S.lastRestrictSec) return;
+        S.lastRestrictSec = sec;
+        RT.fromElement(sec)
+            .then(function (t) { return S.vt.restrictTo(t); })
+            .catch(function () { S.lastRestrictSec = null; });   /* tenta de novo no próximo scroll */
+    }
+
     /* ---------- crop target: overlay fixo com a geometria da coluna ----
        As <section> rolam verticalmente (recortar uma delas seguiria o
        slide para fora da tela); o overlay fixo cobre a coluna no
@@ -518,10 +563,58 @@
         t0: 0, timer: null, finalizeTimer: null, slowWarned: false, memWarned: false, gotMetrics: false, noAudio: false, out: null,
         diagRaf: 0, diagLastRaf: 0, navUntil: 0, maxNavRafMs: 0, maxNavLongMs: 0,
         maxNavPtsMs: 0, maxNavFirstFrameMs: 0, path: '', input: null, crop: null, lastStats: null,
+        /* Element Capture: ativo nesta sessão, seção atualmente restrita e
+           rAF que evita reaplicar o restrictTo mais de uma vez por frame */
+        elemActive: false, lastRestrictSec: null, reRaf: 0,
+        /* gravação direta no disco: o handle do arquivo escolhido (some no
+           cleanup) e o nome dele (sobrevive, porque o aviso final vem depois) */
+        diskHandle: null, diskName: '',
+        /* falhas do caminho de gravação nesta sessão (S056): sobrevivem ao
+           cleanup() porque o deliver() acontece DEPOIS dele */
+        falhas: [],
         /* fallback MediaRecorder (só sem WebCodecs/TrackProcessor) */
         rec: null, vid: null, rvfc: 0, raf: 0, chunks: [], cvs: null
     };
     function isRec() { return !!(S.worker || S.rec || S.stopping); }
+
+    /* ---------- gravar direto no disco (sem teto de memória) -------------
+       O mux in-memory monta o MP4 inteiro num ArrayBuffer: teto real de ~2 GB
+       (RangeError) com pico de cópia no finalize, por isso a gravação em
+       memória avisa em ~384 MB e PARA sozinha perto de ~512 MB — a 12 Mbps,
+       uns 6 minutos. Escrevendo no arquivo que o usuário escolhe, o Worker
+       muxa em FLUXO e não acumula nada: a gravação dura o que o disco aguentar,
+       e o finalize deixa de copiar centenas de MB.
+       Preço honesto: sem o buffer completo em mãos, o índice (moov) vai para o
+       FIM do arquivo (fastStart: false). Parar normalmente escreve o índice; um
+       travamento do navegador no meio deixa um MP4 com dados e sem índice. */
+    /* o showSaveFilePicker JÁ cria (ou zera) o arquivo ao escolher. Se a gravação
+       nem chegar a começar (captura cancelada, guia errada), esse arquivo de 0 byte
+       não pode ficar para trás fingindo ser uma gravação. */
+    function discardDiskFile() {
+        var h = S.diskHandle;
+        S.diskHandle = null;
+        S.diskName = '';
+        if (h && typeof h.remove === 'function') { try { h.remove(); } catch (e) { } }
+    }
+    function canSaveToDisk() { return !!(window.showSaveFilePicker && window.isSecureContext); }
+    function diskWanted() { return canSaveToDisk() && !!(ui.disk && ui.disk.checked); }
+    function setupDiskToggle() {
+        if (!ui.disk) return;
+        var lbl = ui.panel.querySelector('#mrc-disk');
+        if (!canSaveToDisk()) {
+            /* file:// ou navegador sem File System Access: só resta a memória */
+            ui.disk.checked = false;
+            ui.disk.disabled = true;
+            if (lbl) lbl.title = 'Requer Chrome/Edge em localhost ou https. Sem isso a gravação fica em memória e para perto de ~512 MB (~6 min).';
+            return;
+        }
+        var saved = null;
+        try { saved = localStorage.getItem('mira-rec-disk'); } catch (e) { }
+        if (saved === '0') ui.disk.checked = false;
+        ui.disk.addEventListener('change', function () {
+            try { localStorage.setItem('mira-rec-disk', ui.disk.checked ? '1' : '0'); } catch (e) { }
+        });
+    }
 
     function fmtTime(ms) {
         var s = Math.floor(ms / 1000);
@@ -536,8 +629,45 @@
     function resetDiagnostics() {
         S.navUntil = 0; S.maxNavRafMs = 0; S.maxNavLongMs = 0; S.maxNavPtsMs = 0; S.maxNavFirstFrameMs = 0;
         S.path = ''; S.input = null; S.crop = null; S.out = null; S.lastStats = null;
+        S.falhas = [];   /* só aqui: o deliver() lê S.falhas depois do cleanup() */
+        S.diskName = '';
         if (ui.diag) ui.diag.textContent = 'diagnóstico aguardando frames';
         if (ui.diagSave) ui.diagSave.disabled = true;
+    }
+
+    /* ---------- falhas do caminho de gravação (S056) ---------------------
+       Toda promise rejeitada do encode/leitura/flush termina AQUI: vira estado
+       visível da sessão (nota no painel + diagnóstico) e faz o arquivo sair com
+       o sufixo -PARCIAL. Nenhuma delas pode existir só no console. */
+    /* pura (testada em node): mescla as falhas do Worker sem duplicar */
+    function mesclarFalhas(destino, novas) {
+        if (!Array.isArray(novas)) return destino;
+        novas.forEach(function (f) {
+            if (!f || !f.message) return;
+            var achou = destino.some(function (d) { return d.where === f.where && d.message === f.message; });
+            if (!achou) destino.push({ where: f.where || 'gravação', message: String(f.message), count: f.count || 1 });
+        });
+        return destino;
+    }
+    /* pura (testada em node): resumo com a CAUSA original, nunca um genérico */
+    function resumoFalhas(falhas) {
+        return (falhas || []).map(function (f) {
+            return f.where + ': ' + f.message + (f.count > 1 ? ' (x' + f.count + ')' : '');
+        }).join(' · ');
+    }
+    /* pura (testada em node): gravação com falha nunca se passa por normal */
+    function nomeSaida(d, ext, parcial) {
+        var pad = function (n) { return String(n).padStart(2, '0'); };
+        return 'mira-reels-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+            '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) +
+            (parcial ? '-PARCIAL' : '') + '.' + ext;
+    }
+    function registrarFalhaSessao(where, message, fatal) {
+        mesclarFalhas(S.falhas, [{ where: where || 'gravação', message: String(message || 'erro desconhecido') }]);
+        note((fatal ? 'Gravação abortada (' : 'Falha na gravação (') + (where || 'gravação') + '): ' +
+            String(message || 'erro desconhecido') +
+            (fatal ? '. Nada foi salvo.' : '. O arquivo será marcado como PARCIAL.'));
+        updateDiag();
     }
     function diagObject(extra) {
         return Object.assign({
@@ -549,6 +679,8 @@
             input: S.input,
             crop: S.crop,
             path: S.path || 'aguardando',
+            parcial: S.falhas.length > 0,
+            falhas: S.falhas.slice(),
             navigation: {
                 maxLongTaskMs: Math.round(S.maxNavLongMs * 10) / 10,
                 maxRafGapMs: Math.round(S.maxNavRafMs * 10) / 10,
@@ -580,7 +712,8 @@
         var out = S.out ? S.out.w + 'x' + S.out.h : '?';
         ui.diag.textContent = (S.path || 'aguardando') + ' · in ' + input + ' · crop ' + crop + ' · out ' + out +
             ' · nav PTS/rAF/long/1º ' + Math.round(S.maxNavPtsMs) + '/' + Math.round(S.maxNavRafMs) + '/' +
-            Math.round(S.maxNavLongMs) + '/' + Math.round(S.maxNavFirstFrameMs) + ' ms';
+            Math.round(S.maxNavLongMs) + '/' + Math.round(S.maxNavFirstFrameMs) + ' ms' +
+            (S.falhas.length ? ' · PARCIAL — ' + resumoFalhas(S.falhas) : '');
     }
     function startRafDiagnostics() {
         S.diagLastRaf = 0;
@@ -599,10 +732,17 @@
         if (S.worker) {
             try { S.worker.postMessage({ type: 'navigation' }); } catch (e) { }
         }
+        /* depois do salto: a seção em cena mudou, o alvo do restrictTo também */
+        if (S.elemActive) setTimeout(reRestrict, 30);
         updateDiag();
     }
     function setupNavigationDiagnostics() {
         window.addEventListener('mira-navigation', onNavigation);
+        /* o scroll cobre o que o mira-navigation não vê: roda, touchpad e barra */
+        window.addEventListener('scroll', function () {
+            if (!isRec() || !S.elemActive || S.reRaf) return;
+            S.reRaf = requestAnimationFrame(function () { S.reRaf = 0; reRestrict(); });
+        }, { passive: true });
         if (typeof PerformanceObserver === 'undefined') return;
         try {
             longTaskObserver = new PerformanceObserver(function (list) {
@@ -627,7 +767,9 @@
     function recordWorkerBody() {
         'use strict';
         var muxer, venc, aenc, vReader, aReader;
+        var writable = null, toDisk = false;            /* gravação direta no arquivo */
         var cfg, stopping = false, muxDead = false, terminalPosted = false;
+        var falhas = [];                                /* falhas NÃO-fatais: o arquivo sai PARCIAL */
         var frames = 0, dropped = 0, encoded = 0, maxQ = 0, audioDropped = 0;
         var encBytes = 0, winBytes = 0;                 /* bytes reais emitidos (vídeo+áudio) */
         var lastKey = null, lastTs = -1;
@@ -646,13 +788,44 @@
         };
         function post(msg, transfer) { self.postMessage(msg, transfer || []); }
         function nowMs() { return (self.performance && self.performance.now) ? self.performance.now() : Date.now(); }
+        /* a CAUSA original, sempre: diagnóstico genérico não conserta nada */
+        function causa(err) { return String(err && err.message || err) || 'erro desconhecido'; }
         /* erro FATAL: nada a salvar (init/mux quebrado). Para os pumps e
            avisa o main para encerrar de vez (não adianta pedir finalize). */
         function fatal(where, msg) {
             stopping = true;
+            registrarFalha(where, msg);
             if (terminalPosted) return;   /* só uma mensagem terminal por sessão */
             terminalPosted = true;
-            post({ type: 'error', where: where, message: String(msg && msg.message || msg), fatal: true });
+            post({ type: 'error', where: where, message: causa(msg), fatal: true });
+        }
+        /* ---------- falhas do caminho de gravação (S056) --------------------
+           Nada aqui pode ser engolido: encode, leitura da track, setup/encode
+           de áudio e flush perdem DADO. Toda falha entra em `falhas` com a
+           causa original, vai para a UI na hora e volta nas stats do 'done',
+           que marca o arquivo como PARCIAL. Repetição (encode que falha a
+           cada frame) só incrementa o contador — não inunda o main. */
+        function registrarFalha(where, err) {
+            var msg = causa(err);
+            for (var i = 0; i < falhas.length; i++) {
+                if (falhas[i].where === where && falhas[i].message === msg) { falhas[i].count++; return false; }
+            }
+            /* teto: nem a lista de falhas pode crescer sem limite (encoder que
+               lança uma mensagem diferente por frame). 12 causas já bastam. */
+            if (falhas.length >= 12) return false;
+            falhas.push({ where: where, message: msg, count: 1 });
+            return true;   /* primeira ocorrência: vale avisar o main */
+        }
+        /* falha que NÃO impede continuar (áudio, flush no encerramento): a
+           gravação segue/termina, mas o arquivo sai marcado como PARCIAL */
+        function falhaDegradada(where, err) {
+            if (registrarFalha(where, err)) post({ type: 'falha', where: where, message: causa(err) });
+        }
+        /* falha que impede continuar gravando vídeo: o main pede stop e salva
+           o que já foi codificado (arquivo PARCIAL, nunca "normal") */
+        function falhaVideo(where, err) {
+            var novo = registrarFalha(where, err);
+            if (novo && !stopping) post({ type: 'error', where: where, message: causa(err) });
         }
         /* o muxer pode lançar ao adicionar chunk (inclusive RangeError de
            memória); uma vez morto, não dá para finalizar */
@@ -719,7 +892,22 @@
                 post({ type: 'info', message: 'escala no worker (canvas)' });
                 return;
             }
-            if (!stopping) post({ type: 'error', where: 'video', message: String(err && err.message || err) });
+            falhaVideo('video', err);
+        }
+
+        /* alvo do mux: o arquivo escolhido pelo usuário (fluxo, sem teto) ou a
+           memória (ArrayBuffer, com teto). No disco o índice do MP4 (moov) só
+           pode ir no fim — daí o fastStart: false. */
+        function prepareTarget(d) {
+            if (!d.fileHandle) return Promise.resolve(new Mp4Muxer.ArrayBufferTarget());
+            return d.fileHandle.createWritable().then(function (w) {
+                writable = w;
+                toDisk = true;
+                return new Mp4Muxer.FileSystemWritableFileStreamTarget(w, { chunked: true });
+            }).catch(function (e) {
+                fatal('disco', 'não consegui abrir o arquivo para gravar: ' + causa(e));
+                return null;
+            });
         }
 
         function start(d) {
@@ -730,28 +918,41 @@
             pathName = scaleMode === 'canvas' ? 'canvas-pending' : 'direct';
             try { importScripts(d.muxerUrl); }
             catch (e) { fatal('muxer', 'não carregou o mp4-muxer: ' + (e && e.message || e)); return; }
-            try {
-                muxer = new Mp4Muxer.Muxer({
-                    target: new Mp4Muxer.ArrayBufferTarget(),
-                    video: { codec: 'avc', width: cfg.out.w, height: cfg.out.h },
-                    audio: cfg.audio ? { codec: 'aac', sampleRate: cfg.audio.sampleRate, numberOfChannels: cfg.audio.numberOfChannels } : undefined,
-                    fastStart: 'in-memory',
-                    /* 'offset' (por track), NUNCA 'cross-track-offset': mic
-                       (AudioData ~0) e captura de tela (VideoFrame no relógio
-                       de uptime) usam origens de relógio diferentes; o cross-
-                       track preserva essa diferença e desloca o vídeo em horas
-                       (vídeo congelado no 1º frame + duração absurda). Os dois
-                       processors nascem juntos no start, então o desvio A/V do
-                       offset por track é <= 1 frame. */
-                    firstTimestampBehavior: 'offset'
-                });
-            } catch (e) { fatal('muxer', e); return; }
-            if (scaleMode === 'canvas') ensureCanvas();
-            try { makeVideoEncoder(); }
-            catch (e) { fatal('video', 'configure falhou: ' + (e && e.message || e)); return; }
-            if (cfg.audio && d.audioReadable) setupAudio(d.audioReadable);
-            pumpVideo(d.videoReadable);
-            startMetrics();
+            /* O AudioEncoder é configurado ANTES do muxer de propósito: se o
+               setup do áudio falhar, o MP4 nasce sem trilha de áudio (em vez
+               de declarar uma trilha que nunca receberia chunk) e a falha vai
+               para a UI — a gravação continua só com vídeo, marcada PARCIAL. */
+            var comAudio = !!(cfg.audio && d.audioReadable) && makeAudioEncoder();
+            /* abrir o arquivo é assíncrono; os pumps só começam depois (a track
+               segura no máximo 1 frame, então a espera não vira fila) */
+            prepareTarget(d).then(function (target) {
+                if (!target) return;                     /* fatal já postado */
+                try {
+                    muxer = new Mp4Muxer.Muxer({
+                        target: target,
+                        video: { codec: 'avc', width: cfg.out.w, height: cfg.out.h },
+                        audio: comAudio ? { codec: 'aac', sampleRate: cfg.audio.sampleRate, numberOfChannels: cfg.audio.numberOfChannels } : undefined,
+                        /* em memória o muxer reordena tudo no fim (moov na frente);
+                           no disco os bytes já saíram, então o moov vai no fim */
+                        fastStart: toDisk ? false : 'in-memory',
+                        /* 'offset' (por track), NUNCA 'cross-track-offset': mic
+                           (AudioData ~0) e captura de tela (VideoFrame no relógio
+                           de uptime) usam origens de relógio diferentes; o cross-
+                           track preserva essa diferença e desloca o vídeo em horas
+                           (vídeo congelado no 1º frame + duração absurda). Os dois
+                           processors nascem juntos no start, então o desvio A/V do
+                           offset por track é <= 1 frame. */
+                        firstTimestampBehavior: 'offset'
+                    });
+                } catch (e) { fatal('muxer', e); return; }
+                if (scaleMode === 'canvas') ensureCanvas();
+                try { makeVideoEncoder(); }
+                catch (e) { fatal('video', 'configure falhou: ' + (e && e.message || e)); return; }
+                if (comAudio) pumpAudio(d.audioReadable);
+                pumpVideo(d.videoReadable);
+                startMetrics();
+                post({ type: 'info', message: toDisk ? 'gravando direto no disco' : 'gravando em memória' });
+            });
         }
 
         function drawCropScale(frame) {
@@ -805,7 +1006,12 @@
             if (scaleMode === 'canvas') {
                 drawCropScale(frame); frame.close();
                 var vf = new VideoFrame(scaleCanvas, { timestamp: ts });
-                try { venc.encode(vf, { keyFrame: key }); if (key) lastKey = ts; } catch (e) { } finally { vf.close(); }
+                /* encode que falha no caminho canvas perde FRAME: aqui não há
+                   mais para onde cair, então vira falha visível (o main pede
+                   stop e salva o parcial) — nunca um catch vazio */
+                try { venc.encode(vf, { keyFrame: key }); if (key) lastKey = ts; }
+                catch (e) { falhaVideo('video-encode', e); }
+                finally { vf.close(); }
                 return;
             }
             try { venc.encode(frame, { keyFrame: key }); if (key) lastKey = ts; frame.close(); }
@@ -814,7 +1020,7 @@
                 /* só o 1º frame (mismatch de dimensão) migra para o canvas e
                    recria o encoder; erro com chunks já muxados é reportado */
                 if (encoded === 0 && scaleMode === 'encoder') { switchToCanvas(); }
-                else if (!stopping) post({ type: 'error', where: 'video', message: String(e && e.message || e) });
+                else { falhaVideo('video-encode', e); }
             }
         }
         function pumpVideo(readable) {
@@ -824,20 +1030,36 @@
                     if (r.done || stopping) { if (r.value) r.value.close(); return; }
                     encodeFrame(r.value);
                     loop();
-                }).catch(function () { });
+                }).catch(function (e) {
+                    /* reader rejeitado = não chega mais NENHUM frame. Antes o
+                       catch era vazio: a gravação seguia viva e o arquivo saía
+                       truncado com cara de normal. Durante o stop a rejeição é
+                       só o cancel() da própria finalização. */
+                    if (!stopping) falhaVideo('video-read', e);
+                });
             })();
         }
-        function setupAudio(readable) {
+        /* configura o AudioEncoder; devolve false (com a falha registrada) se
+           o setup falhar — quem chama decide gravar só vídeo */
+        function makeAudioEncoder() {
             try {
                 aenc = new AudioEncoder({
                     output: function (chunk, meta) {
                         encBytes += chunk.byteLength; winBytes += chunk.byteLength;
                         if (muxer && !muxDead) { try { muxer.addAudioChunk(chunk, meta); } catch (e) { onMuxError(e); } }
                     },
-                    error: function (err) { if (!stopping) post({ type: 'error', where: 'audio', message: String(err && err.message || err) }); }
+                    /* áudio quebrado não derruba o vídeo: degrada e marca PARCIAL */
+                    error: function (err) { falhaDegradada('audio', err); }
                 });
                 aenc.configure(cfg.audio);
-            } catch (e) { aenc = null; return; }
+                return true;
+            } catch (e) {
+                aenc = null;
+                falhaDegradada('audio-setup', e);
+                return false;
+            }
+        }
+        function pumpAudio(readable) {
             aReader = readable.getReader();
             (function loop() {
                 aReader.read().then(function (r) {
@@ -845,11 +1067,15 @@
                     /* AAC costuma acompanhar; se a fila estourar, descarta em
                        vez de crescer sem limite (áudio não trava o vídeo) */
                     if (aenc && aenc.state === 'configured' && aenc.encodeQueueSize < 40) {
-                        try { aenc.encode(r.value); } catch (e) { }
+                        try { aenc.encode(r.value); } catch (e) { falhaDegradada('audio-encode', e); }
                     } else if (aenc) { audioDropped++; }
                     r.value.close();
                     loop();
-                }).catch(function () { });
+                }).catch(function (e) {
+                    /* mic morto no meio: o vídeo continua, mas o áudio acaba
+                       aqui — o usuário precisa saber (arquivo PARCIAL) */
+                    if (!stopping) falhaDegradada('audio-read', e);
+                });
             })();
         }
         function startMetrics() {
@@ -872,26 +1098,52 @@
             stopping = true;
             if (metricsTimer) { clearInterval(metricsTimer); metricsTimer = 0; }
             Promise.resolve()
+                /* cancel() rejeitar aqui é esperado quando a track já morreu:
+                   a perda de frames dessa track, se houve, já foi registrada
+                   pelo pump. Só o cancel é silencioso — o flush não. */
                 .then(function () { return vReader ? vReader.cancel().catch(function () { }) : null; })
                 .then(function () { return aReader ? aReader.cancel().catch(function () { }) : null; })
-                .then(function () { return (venc && venc.state === 'configured') ? venc.flush().catch(function () { }) : null; })
-                .then(function () { return (aenc && aenc.state === 'configured') ? aenc.flush().catch(function () { }) : null; })
+                /* flush que rejeita = CAUDA da gravação perdida (os últimos
+                   frames/pacotes nunca chegam ao mux). Antes ia para um catch
+                   vazio e o arquivo truncado era entregue como normal. */
+                .then(function () {
+                    return (venc && venc.state === 'configured')
+                        ? venc.flush().catch(function (e) { falhaDegradada('video-flush', e); }) : null;
+                })
+                .then(function () {
+                    return (aenc && aenc.state === 'configured')
+                        ? aenc.flush().catch(function (e) { falhaDegradada('audio-flush', e); }) : null;
+                })
                 .then(function () {
                     try { if (venc && venc.state !== 'closed') venc.close(); } catch (e) { }
                     try { if (aenc && aenc.state !== 'closed') aenc.close(); } catch (e) { }
+                    /* áudio descartado por fila cheia também é dado perdido */
+                    if (audioDropped > 0) registrarFalha('audio-fila', audioDropped + ' pacote(s) de áudio descartado(s) por fila cheia');
                     if (terminalPosted) return;   /* fatal já encerrou; não posta 'done' duplicado */
                     terminalPosted = true;
                     var buffer = null, err = '';
                     if (muxer && !muxDead) {
-                        try { muxer.finalize(); buffer = muxer.target.buffer; }
-                        catch (e) { err = String(e && e.message || e); }
+                        try { muxer.finalize(); if (!toDisk) buffer = muxer.target.buffer; }
+                        catch (e) { err = causa(e); }
                     } else { err = 'mux indisponível'; }
-                    if (err) post({ type: 'error', where: 'finalize', message: err, fatal: true });
-                    else post({ type: 'done', buffer: buffer, stats: { frames: frames, dropped: dropped, encoded: encoded,
-                        audioDropped: audioDropped, maxQ: maxQ, maxNavPtsGapMs: maxNavPtsGapUs / 1000,
-                        maxNavFirstFrameDelayMs: maxNavFirstFrameMs,
-                        input: inputSize, crop: cropRect, output: cfg.out, path: pathName } }, buffer ? [buffer] : []);
-                });
+                    /* no disco o finalize só EMITE o índice: quem o descarrega no
+                       arquivo é o close(). Sem ele o MP4 fica sem moov (ilegível),
+                       então uma falha aqui é fatal, não cosmética. */
+                    return Promise.resolve(writable ? writable.close() : null)
+                        .catch(function (e) { if (!err) err = 'não consegui fechar o arquivo: ' + causa(e); })
+                        .then(function () {
+                            if (err) { post({ type: 'error', where: 'finalize', message: err, fatal: true }); return; }
+                            post({ type: 'done', buffer: buffer, savedToDisk: toDisk, stats: { frames: frames, dropped: dropped, encoded: encoded,
+                                audioDropped: audioDropped, maxQ: maxQ, maxNavPtsGapMs: maxNavPtsGapUs / 1000,
+                                maxNavFirstFrameDelayMs: maxNavFirstFrameMs,
+                                input: inputSize, crop: cropRect, output: cfg.out, path: pathName,
+                                /* toda falha da sessão viaja com a causa original; o main
+                                   usa isso para marcar o arquivo como PARCIAL */
+                                falhas: falhas, parcial: falhas.length > 0 } }, buffer ? [buffer] : []);
+                        });
+                })
+                /* nem o encerramento pode falhar em silêncio */
+                .catch(function (e) { fatal('finalize', e); });
         }
 
         if (self.__MIRA_RECORD_TEST__) {
@@ -922,7 +1174,10 @@
        (RangeError). Parar em ~512 MB deixa margem folgada para esse pico. */
     var MEM_SOFT = 384 * 1024 * 1024, MEM_HARD = 512 * 1024 * 1024;
     function handleMetrics(d) {
-        S.gotMetrics = true;
+        /* só desarma o aviso de "sem frames" se REALMENTE chegou frame: o
+           Worker reporta métricas mesmo com a captura vazia (restrictTo que
+           não emite frame por falta de stacking context, por exemplo) */
+        if (d.frames > 0) S.gotMetrics = true;
         if (d.input) S.input = d.input;
         if (d.crop) S.crop = d.crop;
         if (d.output) S.out = d.output;
@@ -936,16 +1191,20 @@
             var mb = Math.round((d.bytes || 0) / (1024 * 1024));
             ui.metrics.textContent = Math.round(d.fps) + ' fps · ' + dropPct + '% desc · fila ' +
                 (d.q || 0) + '/' + (d.maxQ || 0) + ' · ' + (d.mbps || 0).toFixed(1) + ' Mbps · ' + mb + ' MB';
-            ui.metrics.classList.toggle('warn', (d.fps > 0 && d.fps < 20) || dropPct >= 25 || (d.bytes || 0) > MEM_SOFT);
+            /* o alerta de MB só faz sentido em memória: no disco o número é só
+               o tamanho do arquivo crescendo, não pressão de RAM */
+            ui.metrics.classList.toggle('warn',
+                (d.fps > 0 && d.fps < 20) || dropPct >= 25 || (!S.diskName && (d.bytes || 0) > MEM_SOFT));
         }
         updateDiag();
         if (!S.slowWarned && (Date.now() - S.t0) > 3000 && d.frames > 0 && d.fps > 0 && d.fps < 20) {
             S.slowWarned = true;
             note('Gravação lenta (' + Math.round(d.fps) + ' fps): verifique chrome://gpu (aceleração de hardware) e feche outras abas.');
         }
-        /* guarda de memória: o mux é in-memory e o ArrayBuffer tem teto de
-           ~2 GB (RangeError), com pico transitório maior no finalize. Para
-           com elegância antes disso, salvando o que já foi gravado. */
+        /* guarda de memória: só vale para o mux in-memory. Gravando direto no
+           disco os bytes já saíram do processo — nada acumula, e interromper
+           aqui seria cortar a gravação sem motivo nenhum. */
+        if (S.diskName) return;
         if ((d.bytes || 0) > MEM_HARD) {
             note('Gravação interrompida no limite de memória (~' + Math.round(d.bytes / (1024 * 1024)) + ' MB): salvando o que já foi gravado. Para clipes longos, grave em partes.');
             stopWorker(false);
@@ -979,6 +1238,28 @@
                 S.busy = false; return;
             }
 
+            /* O arquivo é escolhido AQUI, antes de qualquer outro diálogo: o
+               showSaveFilePicker exige ativação do usuário, e a do clique/tecla
+               R ainda está valendo. Depois do seletor de captura ela já era. */
+            if (diskWanted()) {
+                try {
+                    ui.status.textContent = 'escolha onde salvar…';
+                    S.diskHandle = await window.showSaveFilePicker({
+                        suggestedName: nomeSaida(new Date(), 'mp4', false),
+                        types: [{ description: 'Vídeo MP4', accept: { 'video/mp4': ['.mp4'] } }]
+                    });
+                } catch (e) {
+                    S.diskHandle = null;
+                    if (e && e.name === 'AbortError') {   /* fechou o seletor: não começa às escondidas */
+                        note('Gravação cancelada (nenhum arquivo escolhido).');
+                        ui.status.textContent = 'pronto';
+                        S.busy = false;
+                        return;
+                    }
+                    note('Não consegui abrir o seletor de arquivo: gravando em memória (para perto de ~512 MB).');
+                }
+            }
+
             if (ui.mic.checked) {
                 try { S.mic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); }
                 catch (e) { S.mic = null; note('Sem microfone: gravando só o vídeo.'); }
@@ -1002,6 +1283,7 @@
             /* o recorte só é válido capturando ESTA guia: janela/tela teria outra geometria */
             var surface = vt.getSettings && vt.getSettings().displaySurface;
             if (surface && surface !== 'browser') {
+                discardDiskFile();
                 cleanup();
                 note('Escolha "Esta guia" no seletor de captura (não janela nem tela inteira) e tente de novo.');
                 ui.status.textContent = 'pronto';
@@ -1013,10 +1295,37 @@
             vt.addEventListener('ended', function () { if (isRec()) { stop(); } else { S.abort = true; } });
 
             readGeo();
-            /* Region Capture ANTES de qualquer clone (a track não pode ter
-               clones no cropTo) e ANTES de criar o TrackProcessor. */
+            /* Recorte ANTES de qualquer clone (a track não pode ter clones no
+               cropTo/restrictTo) e ANTES de criar o TrackProcessor.
+
+               Element Capture PRIMEIRO: restringe a captura à subárvore da
+               seção visível, então overlays irmãos das <section> (o
+               teleprompter) ficam fora do vídeo e a track já sai 9:16.
+               Sem suporte ou sem sucesso, cai no Region Capture geométrico. */
             var usedCrop = false;
-            if (typeof CropTarget !== 'undefined' && typeof CropTarget.fromElement === 'function' &&
+            S.elemActive = false;
+            S.lastRestrictSec = null;
+            /* OPT-IN pelo deck (window.__miraElemCapture): o restrictTo só emite
+               frame se a seção formar stacking context. Um deck antigo, sem
+               `isolation: isolate`, gravaria VÍDEO VAZIO — por isso o Element
+               Capture nunca liga sozinho: quem declara a flag é o deck que tem
+               o CSS. Sem a flag, o caminho é o Region Capture de sempre. */
+            var RT = window.__miraElemCapture ? elemCaptureRT(vt) : null;
+            if (RT) {
+                try {
+                    var secNow = currentSection();
+                    if (secNow) {
+                        await vt.restrictTo(await RT.fromElement(secNow));
+                        S.elemActive = true;
+                        usedCrop = true;
+                        S.lastRestrictSec = secNow;
+                        /* o deck usa este atributo para NÃO esconder o teleprompter
+                           (com Element Capture ele já não entra no vídeo) */
+                        document.documentElement.setAttribute('data-mira-elemcapture', 'true');
+                    }
+                } catch (eElem) { S.elemActive = false; }
+            }
+            if (!S.elemActive && typeof CropTarget !== 'undefined' && typeof CropTarget.fromElement === 'function' &&
                 typeof vt.cropTo === 'function' && geo.ok) {
                 try {
                     var target = await CropTarget.fromElement(ensureCropOverlay());
@@ -1026,6 +1335,7 @@
             }
 
             if (S.abort || vt.readyState !== 'live') {
+                discardDiskFile();
                 cleanup();
                 note('Captura encerrada antes de a gravação começar.');
                 ui.status.textContent = 'pronto';
@@ -1037,9 +1347,13 @@
             var od = S.out || { w: OUT_W, h: OUT_H };
             uiRecording('Saída: MP4 (H.264) ' + od.w + 'x' + od.h + ' · encoder ' +
                 (mode === 'gpu' ? 'hardware preferido' : mode === 'cpu' ? 'software (CPU)' : 'Auto') +
+                (S.diskName ? ' · direto no disco (' + S.diskName + '), sem teto de memória'
+                    : ' · em memória: para sozinha perto de ~512 MB (~6 min)') +
                 (S.noAudio ? ' · sem AAC neste Chrome: gravando sem áudio' : '') +
-                (usedCrop ? ' · recorte na GPU · encode no worker.' : ' · recorte no worker.'));
+                (S.elemActive ? ' · Element Capture (teleprompter fora do vídeo) · encode no worker.'
+                    : usedCrop ? ' · recorte na GPU · encode no worker.' : ' · recorte no worker.'));
         } catch (e) {
+            discardDiskFile();
             cleanup();
             note(e && e.name === 'NotAllowedError' ? 'Captura cancelada.' : 'Falha ao iniciar: ' + (e && e.message || e));
             ui.status.textContent = 'pronto';
@@ -1081,19 +1395,29 @@
             out: out,
             video: vcfg,
             audio: audioCfg,
-            /* Sempre enviado: rede de segurança quando cropTo() resolve,
-               mas a track real ainda entrega a guia inteira no Windows. */
-            cropFrac: { x: geo.left / window.innerWidth, y: 0, w: geo.width / window.innerWidth, h: 1 },
+            /* Rede de segurança do Region Capture: quando cropTo() resolve mas a
+               track real ainda entrega a guia inteira (Windows), o Worker recorta
+               pela fração. Com Element Capture a track JÁ vem 9:16 — recortar de
+               novo cortaria o slide, então a fração vira no-op. */
+            cropFrac: S.elemActive
+                ? { x: 0, y: 0, w: 1, h: 1 }
+                : { x: geo.left / window.innerWidth, y: 0, w: geo.width / window.innerWidth, h: 1 },
             sourceViewport: { w: window.innerWidth, h: window.innerHeight }
         };
         var muxerUrl = new URL('assets/vendor/mp4-muxer.js', location.href).href;
 
         S.worker = makeWorker();
         S.worker.onmessage = onWorkerMsg;
-        S.worker.onerror = function (e) { note('Erro no worker de gravação: ' + (e && e.message || 'desconhecido')); stopWorker(true); };
+        S.worker.onerror = function (e) {
+            registrarFalhaSessao('worker', (e && e.message) || 'erro desconhecido no worker de gravação', false);
+            stopWorker(true);
+        };
 
         var transfer = [videoReadable];
         var msg = { type: 'start', config: config, muxerUrl: muxerUrl, videoReadable: videoReadable, forceCanvas: !usedCrop };
+        /* o FileSystemFileHandle é clonável (não transferível): vai por cópia na
+           mensagem e o Worker abre o writable do lado dele, fora do main thread */
+        if (S.diskHandle) { msg.fileHandle = S.diskHandle; S.diskName = S.diskHandle.name || 'arquivo'; }
         if (audioReadable) { msg.audioReadable = audioReadable; transfer.push(audioReadable); }
         S.worker.postMessage(msg, transfer);
 
@@ -1114,8 +1438,11 @@
             if (d.path) S.path = d.path;
             updateDiag();
         }
+        /* degradação (áudio, flush): a gravação continua/termina, mas o arquivo
+           já nasce marcado — a causa nunca fica só no console do Worker */
+        else if (d.type === 'falha') { registrarFalhaSessao(d.where, d.message, false); }
         else if (d.type === 'error') {
-            note('Erro na gravação (' + d.where + '): ' + d.message);
+            registrarFalhaSessao(d.where, d.message, !!d.fatal);
             /* erro fatal (init/mux quebrado) ou erro DURANTE a finalização:
                o Worker não vai (ou não pôde) entregar 'done' → encerra já.
                Erro não-fatal em gravação ativa → pede stop (salva parcial). */
@@ -1135,11 +1462,11 @@
         if (S.finalizeTimer) clearTimeout(S.finalizeTimer);
         S.finalizeTimer = setTimeout(function () {
             S.finalizeTimer = null;
-            note('A finalização não respondeu; encerrando a gravação.');
+            registrarFalhaSessao('finalize', 'a finalização não respondeu em 10s', true);
             forceStop();
         }, 10000);
         try { S.worker.postMessage({ type: 'stop' }); }
-        catch (e) { forceStop(); }
+        catch (e) { registrarFalhaSessao('finalize', 'não foi possível pedir o stop ao worker: ' + (e && e.message || e), true); forceStop(); }
     }
     /* encerramento duro: usado quando o Worker não vai entregar 'done'
        (fatal, timeout, postMessage falhou). Termina o Worker e reseta. */
@@ -1155,6 +1482,9 @@
         if (d.buffer && d.buffer.byteLength) blob = new Blob([d.buffer], { type: 'video/mp4' });
         S.lastStats = d.stats || null;
         if (S.lastStats) {
+            /* falhas que o Worker acumulou (inclusive as do flush, que só
+               acontecem depois do stop) entram no estado antes de entregar */
+            mesclarFalhas(S.falhas, S.lastStats.falhas);
             if (S.lastStats.input) S.input = S.lastStats.input;
             if (S.lastStats.crop) S.crop = S.lastStats.crop;
             if (S.lastStats.output) S.out = S.lastStats.output;
@@ -1162,13 +1492,27 @@
             S.maxNavPtsMs = Math.max(S.maxNavPtsMs, Number(S.lastStats.maxNavPtsGapMs) || 0);
             S.maxNavFirstFrameMs = Math.max(S.maxNavFirstFrameMs, Number(S.lastStats.maxNavFirstFrameDelayMs) || 0);
         }
+        var savedToDisk = !!d.savedToDisk;
         var finalDiag = diagObject({ worker: S.lastStats });
         cleanup();
         S.stopping = false;
         window.__miraLastRecordingDiagnostics = finalDiag;
         if (ui.diagSave) ui.diagSave.disabled = false;
+        /* no disco não há blob nem download: o arquivo já foi escrito enquanto
+           gravava, e o close() acabou de selar o índice */
+        if (savedToDisk) {
+            var parcial = S.falhas.length > 0;
+            ui.status.textContent = parcial ? 'parcial' : 'pronto';
+            note(parcial
+                ? 'Salvo com falhas em ' + (S.diskName || 'disco') + ' — ' + resumoFalhas(S.falhas) + '. Confira o arquivo antes de publicar.'
+                : 'Salvo em ' + (S.diskName || 'disco') + '.');
+            return;
+        }
         if (blob) deliver(blob, 'mp4');
-        else { note('Nada gravado.'); ui.status.textContent = 'pronto'; }
+        else {
+            note('Nada gravado' + (S.falhas.length ? ' — ' + resumoFalhas(S.falhas) : '.'));
+            ui.status.textContent = 'pronto';
+        }
     }
 
     /* ---------- fallback MediaRecorder (sem WebCodecs/TrackProcessor) ----
@@ -1231,7 +1575,12 @@
         S.rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: BITRATE });
         S.rec.ondataavailable = function (e) { if (e.data && e.data.size) S.chunks.push(e.data); };
         S.rec.onstop = saveFallback;
-        S.rec.onerror = function (e) { note('Erro na gravação: ' + ((e && e.error && e.error.name) || 'desconhecido') + '.'); stop(); };
+        /* fallback também não entrega arquivo com cara de normal depois de um
+           erro: registra a causa e o saveFallback baixa marcado como PARCIAL */
+        S.rec.onerror = function (e) {
+            registrarFalhaSessao('mediarecorder', (e && e.error && (e.error.message || e.error.name)) || 'erro desconhecido', false);
+            stop();
+        };
         S.rec.start(250);
         uiRecording((mime.indexOf('mp4') !== -1 ? 'Saída: MP4 (H.264) 1080x1920' : 'Este Chrome não grava MP4: salvando WebM 1080x1920') +
             ' · MediaRecorder (fallback)' + (usedCrop ? ' · recorte na GPU.' : ' · recorte no canvas.'));
@@ -1271,19 +1620,26 @@
     }
 
     function deliver(blob, ext) {
-        if (!blob || !blob.size) { note('Nada gravado.'); ui.status.textContent = 'pronto'; return; }
-        var d = new Date();
-        var pad = function (n) { return String(n).padStart(2, '0'); };
-        var name = 'mira-reels-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
-            '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + '.' + ext;
+        if (!blob || !blob.size) {
+            note('Nada gravado' + (S.falhas.length ? ' — ' + resumoFalhas(S.falhas) : '.'));
+            ui.status.textContent = 'pronto';
+            return;
+        }
+        /* houve falha no caminho de encode/leitura/flush: o arquivo pode estar
+           truncado (frames, áudio ou cauda perdidos). Ele SAI — jogar fora seria
+           pior —, mas sai rotulado e com a causa na nota, nunca como normal. */
+        var parcial = S.falhas.length > 0;
+        var name = nomeSaida(new Date(), ext, parcial);
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = name;
         document.body.appendChild(a);
         a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-        ui.status.textContent = 'pronto';
-        note('Baixado: ' + name);
+        ui.status.textContent = parcial ? 'parcial' : 'pronto';
+        note(parcial
+            ? 'Baixado PARCIAL: ' + name + ' — ' + resumoFalhas(S.falhas) + '. Confira o arquivo antes de publicar.'
+            : 'Baixado: ' + name);
     }
 
     function cleanup() {
@@ -1300,6 +1656,11 @@
         S.worker = null; S.rvfc = 0; S.raf = 0; S.diagRaf = 0; S.diagLastRaf = 0; S.timer = null; S.vid = null; S.tab = null; S.vt = null;
         S.mic = null; S.cvs = null; S.rec = null; S.chunks = []; S.noAudio = false; S.gotMetrics = false; S.slowWarned = false;
         S.memWarned = false;
+        if (S.reRaf) cancelAnimationFrame(S.reRaf);
+        S.elemActive = false; S.lastRestrictSec = null; S.reRaf = 0;
+        /* o handle vai embora, mas S.diskName fica: o aviso final é depois daqui */
+        S.diskHandle = null;
+        document.documentElement.removeAttribute('data-mira-elemcapture');
         document.documentElement.removeAttribute('data-mira-recording');
         try { window.dispatchEvent(new CustomEvent('mira-recording-change', { detail: { recording: false } })); } catch (e) { }
         ui.btn.classList.remove('rec');
@@ -1341,6 +1702,10 @@
         window.__MIRA_RECORD_TEST__.fetchSystemGpus = fetchSystemGpus;
         window.__MIRA_RECORD_TEST__.workerBody = recordWorkerBody;
         window.__MIRA_RECORD_TEST__.setGpuUi = function (gpuEl) { ui.gpu = gpuEl; };
+        /* helpers puros do tratamento de falha (S056), testados em node */
+        window.__MIRA_RECORD_TEST__.mesclarFalhas = mesclarFalhas;
+        window.__MIRA_RECORD_TEST__.resumoFalhas = resumoFalhas;
+        window.__MIRA_RECORD_TEST__.nomeSaida = nomeSaida;
     } else if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
