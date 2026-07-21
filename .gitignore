@@ -3,6 +3,7 @@ node_modules/
 *.log
 .DS_Store
 agents/mira-builder/videos_header/
+templates/videos_header/
 decks/**/assets/*.glb
 
 # MkDocs build output
